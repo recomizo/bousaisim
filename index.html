@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>消防設備個人事業シミュレーション</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior-y: contain;
+            padding-bottom: 150px; 
+        }
+        .modal { display: none; }
+        .modal.show { display: flex; }
+        .job-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; border-width: 1px; }
+        .job-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .btn { transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out; }
+        .btn:active { transform: scale(0.95); }
+        .btn-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .money-negative { color: #ef4444; }
+        .financial-info p { margin-bottom: 0.25rem; }
+        .section-title {
+            font-size: 1.125rem; 
+            font-weight: 600;
+            color: #1f2937;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .schedule-list-container {
+            max-height: 40rem; 
+            overflow-y: auto;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            background-color: #f9fafb;
+        }
+        #full-schedule-list { 
+            display: flex;
+            flex-wrap: wrap; 
+            gap: 0.5rem; 
+        }
+        .today-job-highlight {
+            background-color: #fef9c3; 
+            border-color: #fde047; 
+        }
+        .schedule-item-wrapper { 
+            height: 60px; 
+            min-width: 70px; 
+            width: auto; 
+            display: flex; 
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.25rem; 
+            border-radius: 0.375rem; 
+            border-width: 1px;
+            position: relative;
+            cursor: default; 
+        }
+        .schedule-item-line { 
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; 
+            align-items: center;
+            height: 100%; 
+            width: 100%;
+        }
+        .schedule-item-date {
+            font-size: 0.75rem; 
+            font-weight: 600;
+        }
+        .schedule-item-type {
+            font-size: 0.875rem; 
+            font-weight: bold;
+        }
+        .schedule-item-reward {
+            font-size: 0.75rem; 
+            white-space: nowrap;
+        }
+
+        .schedule-item-tooltip {
+            display: none;
+            position: absolute;
+            background-color: #1f2937; 
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem; 
+            font-size: 0.75rem; 
+            z-index: 50; 
+            top: 50%; /* 上下中央に */
+            left: calc(100% + 5px); /* カードの右側に表示 */
+            transform: translateY(-50%); /* 上下中央揃え */
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            pointer-events: none; 
+        }
+        .schedule-item-wrapper:hover .schedule-item-tooltip,
+        .schedule-item-wrapper:focus .schedule-item-tooltip,
+        .schedule-item-wrapper:focus-within .schedule-item-tooltip { 
+            display: block;
+        }
+
+        .status-bar-item {
+            padding: 0.25rem 0.5rem;
+            display: flex; 
+            align-items: center; 
+            position: relative; 
+        }
+        .status-bar-item .icon { 
+            width: 1rem; 
+            height: 1rem; 
+            margin-right: 0.25rem; 
+            color: #4b5563; 
+        }
+        .status-bar-item .value { 
+            font-weight: 600; 
+        }
+        .status-tooltip {
+            display: none;
+            position: absolute;
+            background-color: #1f2937; 
+            color: white;
+            padding: 0.375rem 0.75rem; 
+            border-radius: 0.375rem; 
+            font-size: 0.75rem; 
+            z-index: 50; 
+            bottom: calc(100% + 5px); 
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            pointer-events: none; 
+        }
+        .status-bar-item:hover .status-tooltip,
+        .status-bar-item:focus .status-tooltip,
+        .status-bar-item:focus-within .status-tooltip {
+            display: block;
+        }
+
+
+        .client-logo-container {
+            width: 30px; 
+            height: 30px;
+            position: relative;
+            margin: 0 auto; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.25rem; 
+            overflow: hidden; 
+            cursor: pointer; 
+        }
+        .client-logo-svg {
+            width: 100%;
+            height: 100%;
+        }
+        .client-trust-value-overlay { 
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 0.75rem; 
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+        }
+        .client-tooltip {
+            display: none;
+            position: absolute;
+            background-color: #1f2937; 
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem; 
+            font-size: 0.75rem; 
+            z-index: 60; 
+            bottom: calc(100% + 5px); 
+            left: 50%;
+            transform: translateX(-50%); 
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .client-logo-wrapper:hover .client-tooltip,
+        .client-logo-wrapper:focus .client-tooltip, 
+        .client-logo-wrapper:focus-within .client-tooltip { 
+            display: block;
+        }
+
+
+        .fixed-action-button-area {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 50; 
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        .action-buttons-row {
+            display: flex;
+            gap: 0.5rem; 
+            margin-bottom: 0.25rem;
+        }
+        .fixed-action-button {
+            width: 72px; 
+            height: 64px; 
+            padding: 0.5rem 0.25rem; 
+            border-radius: 0.5rem; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column; 
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem; 
+            font-weight: 500;
+            line-height: 1.2; 
+        }
+        .fixed-action-button svg {
+            width: 1.25rem; 
+            height: 1.25rem; 
+            margin-bottom: 0.125rem;
+        }
+        .date-money-info-row { 
+            display: flex;
+            align-items: center;
+            gap: 0.75rem; 
+            background-color: rgba(243, 244, 246, 0.9); 
+            padding: 0.25rem 0.75rem; 
+            border-radius: 0.375rem;
+            box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+        }
+        .fixed-date-display, #fixed-money-display {
+            font-size: 0.75rem; 
+        }
+        #fixed-money-display {
+            font-weight: bold;
+            color: #1e3a8a; 
+        }
+        .mini-job-card { 
+            width: 40px; 
+            height: 60px; 
+            border-radius: 0.25rem; 
+            padding: 2px; 
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; 
+            align-items: center;
+            line-height: 1.1; 
+        }
+        .mini-job-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .mini-job-skill-info { 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1; 
+        }
+        .mini-job-skill-type { 
+            font-size: 0.625rem; 
+            font-weight: 500;
+            margin-top: 1px;
+        }
+        .mini-job-skill-req { 
+            font-size: 0.75rem; 
+            font-weight: bold;
+        }
+        .mini-job-scheduled-date-card { 
+            font-size: 0.625rem; 
+            color: #6b7280; 
+            margin-bottom: 1px;
+        }
+         
+        .condition-bar-container {
+            height: 0.75rem; 
+            background-color: #e5e7eb; 
+            border-radius: 0.25rem; 
+            overflow: hidden;
+            width: 100%; 
+        }
+        .condition-bar {
+            height: 100%;
+            transition: width 0.3s ease-in-out;
+        }
+        .stamina-bar { background-color: #22c55e; }
+        .stress-bar { background-color: #f97316; }
+        .stress-bar-high { background-color: #ef4444; }
+        .report-modal-content, .news-modal-content, .office-modal-content, .ads-modal-content, .equipment-modal-content {
+            white-space: pre-wrap; 
+            max-height: 70vh;
+            overflow-y: auto;
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem; 
+        }
+        #modal-message-result hr {
+            border-top: 1px dashed #cbd5e1; 
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        #modal-message-result b {
+            font-weight: 600;
+        }
+         #modal-message-result span.text-green-600 { color: #16a34a; }
+         #modal-message-result span.text-red-600 { color: #dc2626; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex flex-col min-h-screen items-center p-4 selection:bg-sky-500 selection:text-white">
+
+    <div class="container mx-auto max-w-6xl w-full bg-white rounded-xl shadow-2xl p-6 md:p-8 space-y-6">
+        <header class="text-center border-b pb-4 border-slate-200">
+            <h1 class="text-lg md:text-xl font-bold text-sky-600">消防設備個人事業シミュレーション</h1>
+        </header>
+
+        <section class="player-status-bar bg-slate-100 p-2 rounded-lg shadow-sm">
+            <div class="flex flex-wrap justify-around items-center gap-x-2 gap-y-1 text-xs sm:text-sm">
+                <div class="status-bar-item" tabindex="0">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
+                    <span id="inspection-skill" class="value text-emerald-700">1.0</span>
+                    <span class="status-tooltip">点検スキル: 点検業務の能力</span>
+                </div>
+                <div class="status-bar-item" tabindex="0">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon">
+                         <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0 0 21 17.25l-5.83-5.83M11.42 15.17A3 3 0 0 1 6.344 12.84l4.002-4.002A3 3 0 0 1 15.17 11.42l-5.83 5.83M11.42 15.17L15.17 11.42" />
+                    </svg>
+                    <span id="construction-skill" class="value text-teal-700">1.0</span>
+                    <span class="status-tooltip">工事スキル: 工事作業の能力</span>
+                </div>
+                <div class="status-bar-item" tabindex="0">
+                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.82.61l-4.725-2.885a.562.562 0 0 0-.652 0l-4.725 2.885a.562.562 0 0 1-.82-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
+                    </svg>
+                    <span id="reputation" class="value text-amber-700">0.0</span>
+                    <span class="status-tooltip">全体評判: 業界でのあなたの評価</span>
+                </div>
+                <div class="status-bar-item" tabindex="0">
+                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h7.5M12 15.75v5.25" />
+                    </svg>
+                    <span id="office-level-display" class="value text-purple-700">Lv1</span>
+                    <span class="status-tooltip">事務所レベル: 現在の事務所の規模</span>
+                </div>
+                <div class="status-bar-item w-28" tabindex="0">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon text-green-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                    </svg>
+                    <div class="condition-bar-container flex-grow">
+                        <div id="stamina-bar" class="condition-bar stamina-bar"></div>
+                    </div>
+                    <span id="stamina" class="value text-green-700 ml-1">100</span>
+                     <span class="status-tooltip">体力: 行動力を示す</span>
+                </div>
+                <div class="status-bar-item w-28" tabindex="0">
+                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon text-orange-600">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.182 16.318A4.486 4.486 0 0 0 12.016 15a4.486 4.486 0 0 0-3.198 1.318M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 4.5h.008v.008H12v-.008ZM8.25 10.5h.008v.008H8.25v-.008Zm7.5 0h.008v.008H15.75v-.008Z" />
+                    </svg>
+                    <div class="condition-bar-container flex-grow">
+                        <div id="stress-bar" class="condition-bar stress-bar"></div>
+                    </div>
+                    <span id="stress" class="value text-orange-700 ml-1">0</span>
+                    <span class="status-tooltip">ストレス: 精神的な疲労度</span>
+                </div>
+            </div>
+        </section>
+
+         <section id="client-relations-section" class="space-y-2">
+            <h3 class="text-lg font-semibold text-slate-700 mb-2">取引先信用度</h3>
+            <div id="client-trust-list" class="grid grid-cols-6 gap-1.5 text-center">
+            </div>
+        </section>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <section id="available-jobs-section" class="space-y-2 lg:col-span-1">
+                <h2 class="section-title">受注可能な案件</h2>
+                <div id="available-jobs-list" class="schedule-list-container grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+                    <p id="no-available-jobs-message" class="text-slate-500 col-span-full text-center py-4">現在、受注可能な新しい案件はありません。</p>
+                </div>
+            </section>
+            
+            <section id="full-schedule-section" class="space-y-2 lg:col-span-1">
+                <h2 class="section-title">今後の予定 (未完了)</h2>
+                <div id="full-schedule-list" class="schedule-list-container">
+                    <p id="no-full-scheduled-jobs-message" class="text-slate-500 text-center py-4">受注済みの予定はありません。</p>
+                </div>
+            </section>
+        </div>
+
+        <section id="log-section" class="space-y-2 mt-8"> 
+            <h2 class="section-title">業務ログ</h2>
+            <div id="log-area" class="bg-slate-50 p-4 rounded-lg shadow text-xs text-slate-600 h-24 overflow-y-auto space-y-1">
+                <p>シミュレーションを開始しました。</p>
+            </div>
+        </section>
+
+        <section class="financial-info grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-6 pt-6 border-t border-slate-200">
+            <div class="bg-lime-50 p-3 rounded-lg shadow">
+                <p class="font-medium text-lime-700">当月売上(未入金):</p>
+                <p id="current-month-sales" class="font-semibold text-lime-600">0円</p>
+            </div>
+            <div class="bg-teal-50 p-3 rounded-lg shadow">
+                <p class="font-medium text-teal-700">翌月末入金予定:</p>
+                <p id="income-due-next-month" class="font-semibold text-teal-600">0円</p>
+            </div>
+            <div class="bg-cyan-50 p-3 rounded-lg shadow">
+                <p class="font-medium text-cyan-700">当月末入金予定:</p>
+                <p id="income-due-this-month" class="font-semibold text-cyan-600">0円</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="fixed-action-button-area">
+        <div class="action-buttons-row">
+            <button id="order-button" class="fixed-action-button btn bg-amber-300 hover:bg-amber-400 text-amber-800 w-14 sm:w-[72px] h-auto p-1 sm:p-2 text-[0.625rem] sm:text-xs">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-0.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                </svg>
+                <span>発注</span>
+            </button>
+            <button id="gig-work-button" class="fixed-action-button btn bg-indigo-400 hover:bg-indigo-500 text-indigo-900 w-14 sm:w-[72px] h-auto p-1 sm:p-2 text-[0.625rem] sm:text-xs">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-0.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245M21 12.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM10.875 5.25a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm10.875 5.25a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+                <span class="fixed-action-button-text">バイト</span>
+            </button>
+            <button id="outing-button" class="fixed-action-button btn bg-lime-400 hover:bg-lime-500 text-lime-800 w-14 sm:w-[72px] h-auto p-1 sm:p-2 text-[0.625rem] sm:text-xs">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-0.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503-8.498 4.875-2.437a.38.38 0 0 1 .54.325l-.013.126m-5.419 2.766a3.18 3.18 0 0 1-.435.262L3.067 15.07a.377.377 0 0 1-.532-.325l.007-.112m11.38-4.498a3.182 3.182 0 0 0-.435-.262m0 0L3.068 7.43m11.38 4.498.012.006m-.012-.006L3.068 7.43m0 0l-.013.126m.013-.126.013.126m0 0L3.067 15.07m0 0l-.007.112m.007-.112 4.875 2.438a.38.38 0 0 0 .54-.325l.013-.126m5.419-2.766a3.18 3.18 0 0 1 .435-.262m0 0 4.875 2.438a.38.38 0 0 0 .54-.325L20.932 8.93a13.891 13.891 0 0 0-9.41-4.654Z" />
+                </svg>
+                <span class="fixed-action-button-text">外出</span>
+            </button>
+            <button id="next-day-button" class="fixed-action-button btn bg-rose-500 hover:bg-rose-600 text-white w-14 sm:w-[72px] h-auto p-1 sm:p-2 text-[0.625rem] sm:text-xs">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-0.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                </svg>
+                <span class="fixed-action-button-text">翌日へ</span>
+            </button>
+        </div>
+        <div class="date-money-info-row">
+            <span id="fixed-money-display"></span>
+            <span id="fixed-date-display-footer" class="fixed-date-display">1年目1月1日</span>
+        </div>
+    </div>
+
+    <div id="job-detail-modal" class="modal fixed inset-0 bg-black bg-opacity-70 items-center justify-center p-4 z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full space-y-4">
+            <h3 id="modal-job-name" class="text-xl font-bold text-sky-700"></h3>
+            <p class="text-sm text-slate-600"><span class="font-medium">取引先:</span> <span id="modal-job-client"></span></p>
+            <p class="text-sm text-slate-500" id="modal-job-description"></p>
+            <div class="grid grid-cols-2 gap-x-4 text-sm">
+                <p><span class="font-medium">売上見込:</span> <span id="modal-job-reward"></span></p>
+                <p><span class="font-medium">必要スキル:</span> <span id="modal-job-skill-req"></span></p>
+                <p><span class="font-medium">獲得評判:</span> <span id="modal-job-rep-gain"></span></p>
+                <p><span class="font-medium">獲得信用:</span> <span id="modal-job-trust-gain"></span></p>
+                <p class="col-span-2"><span class="font-medium">作業予定日:</span> <span id="modal-job-scheduled-date"></span></p>
+            </div>
+            <div class="flex justify-end gap-3 mt-4">
+                <button id="modal-job-accept-button" class="btn bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-4 rounded-lg">この案件を受注する</button>
+                <button id="modal-job-close-button" class="btn bg-slate-300 hover:bg-slate-400 text-slate-800 font-semibold py-2 px-4 rounded-lg">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="event-modal" class="modal fixed inset-0 bg-black bg-opacity-70 items-center justify-center p-4 z-[100]">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full space-y-4">
+            <h3 id="event-title" class="text-xl font-bold text-rose-600"></h3>
+            <p id="event-description" class="text-slate-700"></p>
+            <div id="event-choices" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <div id="result-modal" class="modal fixed inset-0 bg-black bg-opacity-70 items-center justify-center p-4 z-[101]">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full text-center space-y-4">
+            <h3 id="modal-title-result" class="text-xl font-bold"></h3>
+            <div id="modal-message-result" class="text-slate-700 text-left max-h-60 overflow-y-auto"></div>
+            <button id="modal-close-button-result" class="btn bg-sky-500 hover:bg-sky-600 text-white font-semibold py-2 px-4 rounded-lg">閉じる</button>
+        </div>
+    </div>
+    
+    <div id="report-modal" class="modal fixed inset-0 bg-black bg-opacity-80 items-center justify-center p-4 z-[102]">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full space-y-4">
+            <h3 class="text-xl font-bold text-sky-700">✨ AIによる報告書ドラフト</h3>
+            <div id="report-modal-content" class="report-modal-content">
+                <p class="text-center text-slate-500">報告書を生成中です...</p>
+            </div>
+            <div class="flex justify-end gap-3 mt-4">
+                <button id="report-modal-copy-button" class="btn bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">内容をコピー</button>
+                <button id="report-modal-close-button" class="btn bg-slate-300 hover:bg-slate-400 text-slate-800 font-semibold py-2 px-4 rounded-lg">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="placeholder-page-modal" class="modal fixed inset-0 bg-black bg-opacity-70 items-center justify-center p-4 z-[103]">
+        <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full text-center space-y-4">
+            <h3 id="placeholder-page-title" class="text-2xl font-bold text-slate-700"></h3>
+            <p class="text-slate-600 text-lg">このページは現在調整中です。</p>
+            <p class="text-sm text-slate-500">今後のアップデートにご期待ください！</p>
+            <button id="placeholder-page-close-button" class="btn bg-sky-500 hover:bg-sky-600 text-white font-semibold py-2 px-6 rounded-lg mt-4">閉じる</button>
+        </div>
+    </div>
+
+    <div id="outing-menu-modal" class="modal fixed inset-0 bg-black bg-opacity-70 items-center justify-center p-4 z-[103]">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full space-y-3">
+            <h3 class="text-xl font-bold text-lime-700 mb-4 text-center">外出メニュー</h3>
+            <button id="eat-out-button" class="btn w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg">外食する</button>
+            <button id="view-industry-news-button" class="btn w-full bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-2 px-4 rounded-lg mt-2">✨ 業界ニュースを見る</button>
+            <button id="outing-menu-close-button" class="btn w-full bg-slate-300 hover:bg-slate-400 text-slate-800 font-semibold py-2 px-4 rounded-lg mt-4">閉じる</button>
+        </div>
+    </div>
+    
+    <div id="news-modal" class="modal fixed inset-0 bg-black bg-opacity-80 items-center justify-center p-4 z-[104]">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-xl w-full space-y-4">
+            <h3 id="news-modal-title" class="text-xl font-bold text-cyan-700">✨ 最新業界ニュース</h3>
+            <div id="news-modal-content" class="news-modal-content">
+                <p class="text-center text-slate-500">ニュースを生成中です...</p>
+            </div>
+            <div class="flex justify-end gap-3 mt-4">
+                <button id="news-modal-close-button" class="btn bg-slate-300 hover:bg-slate-400 text-slate-800 font-semibold py-2 px-4 rounded-lg">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const moneyDisplay = document.getElementById('money');
+        const inspectionSkillDisplay = document.getElementById('inspection-skill');
+        const constructionSkillDisplay = document.getElementById('construction-skill');
+        const reputationDisplay = document.getElementById('reputation');
+        const officeLevelDisplay = document.getElementById('office-level-display');
+        const fixedDateDisplayFooter = document.getElementById('fixed-date-display-footer');
+        const clientTrustList = document.getElementById('client-trust-list');
+        const currentMonthSalesDisplay = document.getElementById('current-month-sales');
+        const incomeDueNextMonthDisplay = document.getElementById('income-due-next-month');
+        const incomeDueThisMonthDisplay = document.getElementById('income-due-this-month');
+        const availableJobsList = document.getElementById('available-jobs-list');
+        const noAvailableJobsMessage = document.getElementById('no-available-jobs-message');
+        const fullScheduleList = document.getElementById('full-schedule-list');
+        const noFullScheduledJobsMessage = document.getElementById('no-full-scheduled-jobs-message');
+        const logArea = document.getElementById('log-area');
+        const nextDayButton = document.getElementById('next-day-button');
+        const fixedMoneyDisplay = document.getElementById('fixed-money-display');
+        
+        const jobDetailModal = document.getElementById('job-detail-modal');
+        const modalJobName = document.getElementById('modal-job-name');
+        const modalJobClient = document.getElementById('modal-job-client');
+        const modalJobDescription = document.getElementById('modal-job-description');
+        const modalJobReward = document.getElementById('modal-job-reward');
+        const modalJobSkillReq = document.getElementById('modal-job-skill-req');
+        const modalJobRepGain = document.getElementById('modal-job-rep-gain');
+        const modalJobTrustGain = document.getElementById('modal-job-trust-gain');
+        const modalJobScheduledDate = document.getElementById('modal-job-scheduled-date');
+        const modalJobAcceptButton = document.getElementById('modal-job-accept-button');
+        const modalJobCloseButton = document.getElementById('modal-job-close-button');
+        let selectedJobIdForModal = null;
+
+        const eventModal = document.getElementById('event-modal');
+        const eventTitle = document.getElementById('event-title');
+        const eventDescription = document.getElementById('event-description');
+        const eventChoicesContainer = document.getElementById('event-choices');
+        let currentEvent = null;
+        
+        const resultModalElement = document.getElementById('result-modal');
+        const resultModalTitle = document.getElementById('modal-title-result');
+        const resultModalMessage = document.getElementById('modal-message-result');
+        const resultModalCloseButton = document.getElementById('modal-close-button-result');
+
+        const staminaDisplay = document.getElementById('stamina');
+        const stressDisplay = document.getElementById('stress');
+        const staminaBar = document.getElementById('stamina-bar');
+        const stressBar = document.getElementById('stress-bar');
+        
+        const reportModal = document.getElementById('report-modal');
+        const reportModalContent = document.getElementById('report-modal-content');
+        const reportModalCopyButton = document.getElementById('report-modal-copy-button');
+        const reportModalCloseButton = document.getElementById('report-modal-close-button');
+
+        const orderButton = document.getElementById('order-button');
+        const outingButton = document.getElementById('outing-button');
+        const gigWorkButton = document.getElementById('gig-work-button');
+        const placeholderPageModal = document.getElementById('placeholder-page-modal');
+        const placeholderPageTitle = document.getElementById('placeholder-page-title');
+        const placeholderPageCloseButton = document.getElementById('placeholder-page-close-button');
+
+        const outingMenuModal = document.getElementById('outing-menu-modal');
+        const eatOutButton = document.getElementById('eat-out-button');
+        const outingMenuCloseButton = document.getElementById('outing-menu-close-button');
+        const viewIndustryNewsButton = document.getElementById('view-industry-news-button');
+        const newsModal = document.getElementById('news-modal');
+        const newsModalContent = document.getElementById('news-modal-content');
+        const newsModalCloseButton = document.getElementById('news-modal-close-button');
+
+
+        let money = 500000;
+        let inspectionSkill = 1.0;
+        let constructionSkill = 1.0;
+        let reputation = 0;
+        let stamina = 100; 
+        let stress = 0;   
+        let currentYear = 1;
+        let currentMonth = 1;
+        let currentDay = 1;
+        let totalDaysPassed = 1;
+        let currentMonthSalesTotal = 0;
+        let incomeDueNextMonth = 0;
+        let incomeDueThisMonth = 0;
+        let availableJobs = [];
+        let playerSchedule = {};
+        let daysInRed = 0;
+        let actionOccurredToday = false;
+        let clientExperience = {};
+        let skillUpFromEatingOutTotal = 0;
+        let hasTakenDailyAction = false;
+        let currentOfficeLevel = 1;
+        let officeRent = 40000;
+
+
+        let clients = [
+            { 
+                id: 'client_asahi', 
+                name: '株式会社アサヒ防災', 
+                trust: 0, 
+                orderCount: 0,
+                logoSvg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#F97316"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="60" fill="white" font-family="Arial, sans-serif">ア</text></svg>`
+            },
+            { 
+                id: 'client_mirai', 
+                name: 'ミライセキュリティ株式会社', 
+                trust: 0,
+                orderCount: 0,
+                logoSvg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#10B981"/><path d="M20 80 L50 20 L80 80 Z M35 70 L65 70" stroke="white" stroke-width="5" fill="none"/></svg>`
+            },
+            { 
+                id: 'client_kanto', 
+                name: '関東ファシリティサービス', 
+                trust: 0,
+                orderCount: 0,
+                logoSvg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#3B82F6"/><text x="25" y="70" font-size="60" fill="white" font-family="Impact, sans-serif">K</text><rect x="60" y="30" width="20" height="40" fill="white"/><rect x="50" y="20" width="40" height="10" fill="white"/></svg>`
+            },
+            { 
+                id: 'client_yamada_kougyo', 
+                name: '山田工業株式会社', 
+                trust: 0,
+                orderCount: 0,
+                logoSvg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#6B7280"/><path d="M20 80 L50 20 L80 80 Z M20 80 L80 80" fill="#D1D5DB"/><path d="M40 50 L60 50 L50 70 Z M45 40 L55 40 L50 25 Z" fill="#9CA3AF"/></svg>`
+            },
+            { 
+                id: 'client_shinsei_denki', 
+                name: '新星電気工事', 
+                trust: 0,
+                orderCount: 0,
+                logoSvg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#8B5CF6"/><polygon points="50,10 61,39 90,39 69,59 79,90 50,70 21,90 31,59 10,39 39,39" fill="yellow"/><path d="M40 60 L45 50 L55 50 L60 60 L55 70 L45 70 Z" fill="white" stroke="#FBBF24" stroke-width="3"/></svg>`
+            },
+            { 
+                id: 'client_ace_kensetsu', 
+                name: 'エース建設', 
+                trust: 0,
+                orderCount: 0,
+                logoSvg: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#EC4899"/><text x="50%" y="60%" dominant-baseline="middle" text-anchor="middle" font-size="70" fill="white" font-family="Arial Black, sans-serif">A</text><rect x="20" y="70" width="60" height="10" fill="white"/></svg>`
+            }
+        ];
+
+        const MAX_DAYS_IN_RED = 14;
+        const JOB_LEAD_TIME_MIN = 7;
+        const JOB_LEAD_TIME_MAX = 20;
+        const DOUBLE_BOOKING_REPUTATION_PENALTY = 20;
+        const DOUBLE_BOOKING_CANCELLATION_FEE_RATE = 0.25;
+        const MIN_REWARD_LOW_TRUST = 8000;
+        const MAX_REWARD_LOW_TRUST = 15000;
+        const MAX_LOG_ENTRIES = 10;
+        const SKILL_UP_LIMIT_PER_JOB_LEVEL = 10;
+
+        const jobTemplates = [
+            { baseName: "小規模消火器点検", skillType: 'inspection', baseRewardTier: 1, skillReq: 1, possibleClients: ['client_asahi', 'client_mirai'], description: "事務所ビル数フロアの消火器点検。基本中の基本。" },
+            { baseName: "テナント誘導灯交換(1箇所)", skillType: 'construction', baseRewardTier: 1, skillReq: 3, possibleClients: ['client_asahi', 'client_kanto', 'client_yamada_kougyo', 'client_shinsei_denki', 'client_ace_kensetsu'], description: "テナント1箇所の誘導灯交換。簡単な作業。" },
+            { baseName: "アパート自火報点検(数戸)", skillType: 'inspection', baseRewardTier: 2, skillReq: 5, possibleClients: ['client_mirai', 'client_kanto'], description: "小規模アパート(数戸)の自火報点検。" },
+            { baseName: "小規模SP部分点検(ヘッド交換)", skillType: 'construction', baseRewardTier: 2, skillReq: 8, possibleClients: ['client_asahi', 'client_mirai', 'client_kanto', 'client_yamada_kougyo', 'client_ace_kensetsu'], description: "簡易スプリンクラーのヘッド数個交換作業。" },
+            { baseName: "消防計画修正補助(軽微)", skillType: 'inspection', baseRewardTier: 1, skillReq: 2, possibleClients: ['client_asahi', 'client_mirai', 'client_kanto'], description: "既存消防計画の軽微な修正と書類作成補助。" },
+            { baseName: "避難器具点検(1箇所)", skillType: 'inspection', baseRewardTier: 1, skillReq: 2, possibleClients: ['client_kanto'], description: "避難はしご1箇所の点検。"},
+            { baseName: "特定防火対象物点検補助(書類整理)", skillType: 'inspection', baseRewardTier: 3, skillReq: 10, possibleClients: ['client_asahi', 'client_mirai'], description: "特定防火対象物の定期点検の補助業務。書類作成含む。"},
+            { baseName: "工場内危険物設備点検(目視)", skillType: 'inspection', baseRewardTier: 3, skillReq: 12, possibleClients: ['client_mirai'], description: "小規模工場の危険物貯蔵設備等の目視点検。"},
+            { baseName: "誘導灯増設工事(数箇所)", skillType: 'construction', baseRewardTier: 2, skillReq: 5, possibleClients: ['client_yamada_kougyo', 'client_shinsei_denki', 'client_ace_kensetsu', 'client_kanto'], description: "ビル内の避難経路に誘導灯を数箇所増設する工事。" },
+            { baseName: "自動火災報知設備 配線工事(小規模)", skillType: 'construction', baseRewardTier: 2, skillReq: 7, possibleClients: ['client_yamada_kougyo', 'client_shinsei_denki', 'client_ace_kensetsu'], description: "小規模テナントにおける自動火災報知設備の配線引き直し、または新規敷設工事。" },
+            { baseName: "防火シャッター連動制御盤設定", skillType: 'construction', baseRewardTier: 3, skillReq: 10, possibleClients: ['client_yamada_kougyo', 'client_ace_kensetsu'], description: "防火シャッターと煙感知器の連動設定および動作確認。" }
+        ];
+        
+        function getRewardByTierAndTrust(tier, clientTrust) {
+            let baseMin = MIN_REWARD_LOW_TRUST;
+            let baseMax = MAX_REWARD_LOW_TRUST;
+
+            if (tier === 1) {
+                 baseMin = 8000 + Math.floor(clientTrust / 10) * 200; 
+                 baseMax = 12000 + Math.floor(clientTrust / 10) * 500;
+            } else if (tier === 2) {
+                 baseMin = 18000 + Math.floor(clientTrust / 8) * 1000;
+                 baseMax = 40000 + Math.floor(clientTrust / 8) * 2000;
+            } else if (tier === 3) {
+                 baseMin = 50000 + Math.floor(clientTrust / 5) * 2000;
+                 baseMax = 100000 + Math.floor(clientTrust / 5) * 4000;
+            }
+            return Math.floor(Math.random() * (baseMax - baseMin + 1)) + baseMin;
+        }
+        
+        const gameEvents = [
+            {
+                id: 'unexpected_cost',
+                title: '予期せぬ機材トラブル！',
+                description: '愛用していた測定器が突然故障してしまった！修理には費用がかかるが、放置すると今後の仕事に支障が出るかもしれない…',
+                triggerChance: (year) => { 
+                    if (year === 1) return 0;
+                    if (year === 2) return 0.02; 
+                    return 0.04; 
+                },
+                choices: [
+                    {
+                        text: 'すぐに修理する (費用: 20,000円)',
+                        successRate: 1.0,
+                        successResult: { money: -20000, message: '測定器を修理し、事なきを得た。出費は痛いが、仕事道具は大切だ。' },
+                        failureResult: {} 
+                    },
+                    {
+                        text: 'しばらく様子を見る',
+                        successRate: 0.4, 
+                        successResult: { message: '幸運なことに、機材は簡単な調整で直った！修理費を節約できた。' },
+                        failureResult: { reputation: -2, inspectionSkill: -0.5, stamina: -10, stress: 5, message: '結局、機材は悪化し、評判も少し落ちてしまった。安物買いの銭失いだったか…点検スキルも少し鈍り、体力も消耗しストレスが溜まった。' }
+                    }
+                ]
+            },
+            {
+                id: 'new_tool_offer',
+                title: '最新工具のセールス',
+                description: '営業マンが最新型の高効率な工具を勧めてきた。価格は高い(100,000円)が、導入すれば作業効率が上がり、スキルも少し向上するかもしれない。',
+                triggerChance: () => 0.005, 
+                choices: [
+                    {
+                        text: '購入する (費用: 100,000円)',
+                        successRate: 0.8, 
+                        successResult: { money: -100000, constructionSkill: 1.5, stress: -5, message: '最新工具は素晴らしい！作業効率が格段に上がり、工事スキルも1.5向上した！ストレスも少し減った。' },
+                        failureResult: { money: -100000, constructionSkill: 0.2, stress: 5, message: 'うーん、期待したほどの効果はなかったようだ…少しは工事スキルが上がった(0.2)が、高い買い物でストレスが溜まった。' }
+                    },
+                    {
+                        text: '今回は見送る',
+                        successRate: 1.0,
+                        successResult: { message: '今は手持ちの工具で十分だ。無理な投資は避けることにした。' },
+                        failureResult: {}
+                    }
+                ]
+            },
+            {
+                id: 'client_urgent_request',
+                title: '取引先からの緊急依頼！',
+                description: () => { 
+                    const randomClient = clients[Math.floor(Math.random() * clients.length)];
+                    currentEvent.assignedClientId = randomClient.id;
+                    return `${randomClient.name}から、急な欠員が出たため、明日の小規模点検を手伝ってほしいと連絡があった。報酬は弾む(25,000円)が、予定外の作業だ。`;
+                },
+                triggerChance: () => 0.01, 
+                choices: [
+                    {
+                        text: '引き受ける (報酬: 25,000円)',
+                        successRate: 0.7, 
+                        successResult: { money: 25000, reputation: 2, trustTarget: 'assigned', trustChange: 0.5, stamina: -15, stress: 3, message: (clientName) => `「本当にありがとう！助かったよ、、、またよろしくお願いいたします！」と感謝されたが、${clientName}からの信用度は0.5しか上がらなかった。世知辛い世の中だ…。報酬25,000円を得て、全体の評判は2上がった。少し疲れた。` },
+                        failureResult: { money: -5000, reputation: -3, trustTarget: 'assigned', trustChange: -3, stamina: -20, stress: 10, message: (clientName) => `緊急依頼でミスをしてしまった…${clientName}の信用は3下がり、全体の評判も3下がった。さらに迷惑料5,000円を支払う羽目に。` }
+                    },
+                    {
+                        text: '丁重にお断りする',
+                        successRate: 0.6, 
+                        successResult: { stress: -1, message: '残念がられたが、事情を説明し理解してもらえた。少し気が楽になった。' },
+                        failureResult: { trustTarget: 'assigned', trustChange: -2, stress: 2, message: (clientName) => `緊急の依頼を断ったことで、${clientName}の心証を少し損ねてしまったようだ（信用度-2）。少しストレスを感じる。` }
+                    }
+                ],
+                assignClient: true 
+            }
+        ];
+        
+        function showPlaceholderPage(title) {
+            if (placeholderPageTitle) placeholderPageTitle.textContent = title;
+            if (placeholderPageModal) placeholderPageModal.classList.add('show');
+        }
+
+        function showJobDetailModal(jobId) {
+            const job = availableJobs.find(j => j.id === jobId);
+            if (!job) return;
+
+            selectedJobIdForModal = jobId;
+            if (modalJobName) modalJobName.textContent = job.name;
+            if (modalJobClient) modalJobClient.textContent = job.clientName;
+            if (modalJobDescription) modalJobDescription.textContent = job.description;
+            if (modalJobReward) modalJobReward.textContent = `${job.reward.toLocaleString()}円`;
+            if (modalJobSkillReq) modalJobSkillReq.textContent = `${job.originalData.skillType === 'inspection' ? '点検' : '工事'}スキル ${job.skillReq}`;
+            if (modalJobRepGain) modalJobRepGain.textContent = `+${(job.skillReq * 0.1).toFixed(1)}`;
+            if (modalJobTrustGain) modalJobTrustGain.textContent = `+${(job.skillReq * 0.1).toFixed(1)}`;
+            
+            if (modalJobScheduledDate) {
+                 const dateParts = job.scheduledDate.split('-');
+                 modalJobScheduledDate.textContent = `${currentYear}年${parseInt(dateParts[1], 10)}月${parseInt(dateParts[2], 10)}日`;
+            }
+
+
+            const currentSkillLevel = job.originalData.skillType === 'inspection' ? inspectionSkill : constructionSkill;
+            if (modalJobAcceptButton) {
+                if (currentSkillLevel < job.skillReq) {
+                    modalJobAcceptButton.classList.add('opacity-50', 'cursor-not-allowed');
+                    modalJobAcceptButton.disabled = true;
+                    modalJobAcceptButton.textContent = 'スキル不足';
+                } else {
+                    modalJobAcceptButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                    modalJobAcceptButton.disabled = false;
+                    modalJobAcceptButton.textContent = 'この案件を受注する';
+                }
+            }
+            if (jobDetailModal) jobDetailModal.classList.add('show');
+        }
+
+        function initializeGame() {
+            clients.forEach(c => {
+                clientExperience[c.id] = {};
+                if (typeof c.orderCount === 'undefined') { 
+                    c.orderCount = 0;
+                }
+            });
+            updateDisplay();
+            generateAvailableJobs();
+            updateFullScheduleDisplay();
+            addLog("消防設備個人事業を開始しました！取引先との信頼関係を築き上げましょう。");
+
+            if (modalJobCloseButton) {
+                modalJobCloseButton.addEventListener('click', () => {
+                    if (jobDetailModal) jobDetailModal.classList.remove('show');
+                    selectedJobIdForModal = null;
+                });
+            }
+
+            if (modalJobAcceptButton) {
+                modalJobAcceptButton.addEventListener('click', () => {
+                    if (selectedJobIdForModal) {
+                        acceptAvailableJob(selectedJobIdForModal);
+                        if (jobDetailModal) jobDetailModal.classList.remove('show');
+                        selectedJobIdForModal = null;
+                    }
+                });
+            }
+            
+            if (resultModalCloseButton) {
+                resultModalCloseButton.addEventListener('click', () => {
+                    if (resultModalElement) resultModalElement.classList.remove('show');
+                });
+            }
+
+            if (reportModalCloseButton) {
+                reportModalCloseButton.addEventListener('click', () => {
+                    if (reportModal) reportModal.classList.remove('show');
+                });
+            }
+    
+            if (reportModalCopyButton) {
+                reportModalCopyButton.addEventListener('click', () => {
+                    if (!reportModalContent) return;
+                    const reportText = reportModalContent.textContent;
+                    const textArea = document.createElement("textarea");
+                    textArea.value = reportText;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        addLog("報告書の内容をクリップボードにコピーしました。");
+                        showResultModal("コピー完了", "報告書の内容をクリップボードにコピーしました。");
+                    } catch (err) {
+                        addLog("報告書のコピーに失敗しました。手動でコピーしてください。");
+                        showResultModal("コピー失敗", "報告書のコピーに失敗しました。お手数ですが、手動でコピーしてください。");
+                    }
+                    document.body.removeChild(textArea);
+                });
+            }
+
+            if (orderButton) {
+                orderButton.addEventListener('click', () => {
+                    showPlaceholderPage("発注ページ");
+                });
+            }
+
+            if (outingButton) {
+                outingButton.addEventListener('click', () => {
+                    if (hasTakenDailyAction) {
+                        showResultModal("行動制限", "本日は既に行動済みです（バイトまたは外出）。");
+                        return;
+                    }
+                    if (outingMenuModal) outingMenuModal.classList.add('show');
+                });
+            }
+            if (outingMenuCloseButton) {
+                outingMenuCloseButton.addEventListener('click', () => {
+                    if (outingMenuModal) outingMenuModal.classList.remove('show');
+                });
+            }
+            if (eatOutButton) {
+                eatOutButton.addEventListener('click', () => {
+                    if (outingMenuModal) outingMenuModal.classList.remove('show');
+                    if (hasTakenDailyAction) {
+                        showResultModal("行動制限", "本日は既に行動済みです（バイトまたは外出）。");
+                        return;
+                    }
+                    
+                    const cost = Math.floor(Math.random() * (5000 - 2000 + 1)) + 2000;
+                    if (money < cost) {
+                        showResultModal("資金不足", `外食するには資金が足りません。(必要: ${cost.toLocaleString()}円)`);
+                        addLog("資金不足で外食できませんでした。");
+                        return;
+                    }
+
+                    hasTakenDailyAction = true;
+                    if (gigWorkButton) {
+                        gigWorkButton.classList.add('btn-disabled'); 
+                        gigWorkButton.disabled = true;
+                    }
+                    if (outingButton) {
+                        outingButton.classList.add('btn-disabled');
+                        outingButton.disabled = true;
+                    }
+
+                    money -= cost;
+                    const stressRecovery = Math.floor(Math.random() * 6) + 5; 
+                    stress = Math.max(0, parseFloat((stress - stressRecovery).toFixed(1)));
+                    
+                    let message = `外食をしてリフレッシュした！<br>費用: ${cost.toLocaleString()}円<br>少し気分が晴れたようだ。`;
+                    let logMsg = `外食を実行。費用: ${cost.toLocaleString()}円、ストレスが少し回復。`;
+
+                    if (skillUpFromEatingOutTotal < 1.0 && Math.random() < 0.01) { 
+                        const skillUpAmount = 0.1;
+                        const skillToUpgrade = Math.random() < 0.5 ? 'inspection' : 'construction'; 
+                        if (skillToUpgrade === 'inspection') {
+                            inspectionSkill = Math.min(100, parseFloat((inspectionSkill + skillUpAmount).toFixed(1)));
+                        } else {
+                            constructionSkill = Math.min(100, parseFloat((constructionSkill + skillUpAmount).toFixed(1)));
+                        }
+                        skillUpFromEatingOutTotal = parseFloat((skillUpFromEatingOutTotal + skillUpAmount).toFixed(1));
+                        message += `<br><br><b class="text-emerald-500">✨ 何か新しい発見があったようだ！</b> (外食スキルアップ累計: ${skillUpFromEatingOutTotal.toFixed(1)}/1.0)`;
+                        logMsg += ` 新しい発見がありスキル +${skillUpAmount.toFixed(1)}。`;
+                    }
+                    showResultModal("外食結果", message);
+                    addLog(logMsg, true);
+                    updateDisplay();
+                });
+            }
+
+            if (gigWorkButton) {
+                gigWorkButton.addEventListener('click', () => {
+                    if (hasTakenDailyAction) {
+                        showResultModal("行動制限", "本日は既に行動済みです（バイトまたは外出）。");
+                        return;
+                    }
+                    if (stamina < 65) {
+                        showResultModal("体力不足", "体力が足りないため、スキマバイトはできません。(体力65以上必要)");
+                        addLog("体力不足でスキマバイトを実行できませんでした。");
+                        return;
+                    }
+                    hasTakenDailyAction = true;
+                    if (outingButton) {
+                        outingButton.classList.add('btn-disabled'); 
+                        outingButton.disabled = true;
+                    }
+                    if (gigWorkButton) {
+                        gigWorkButton.classList.add('btn-disabled');
+                        gigWorkButton.disabled = true;
+                    }
+
+
+                    const income = Math.floor(Math.random() * (5000 - 3000 + 1)) + 3000;
+                    money += income;
+                    stamina = Math.max(0, parseFloat((stamina - 65).toFixed(1)));
+                    stress = Math.min(100, parseFloat((stress + 3).toFixed(1)));
+                    const message = `スキマバイトを行いました。<br>${income.toLocaleString()}円の収入を得ましたが、体力が65低下し、ストレスが3上昇しました。`;
+                    showResultModal("スキマバイト完了", message);
+                    addLog(`スキマバイトを実行。収入: ${income.toLocaleString()}円、体力:-65、ストレス:+3。`);
+                    updateDisplay();
+                });
+            }
+
+            if (viewIndustryNewsButton) {
+                viewIndustryNewsButton.addEventListener('click', async () => {
+                    if (outingMenuModal) outingMenuModal.classList.remove('show');
+                    if (hasTakenDailyAction) {
+                        showResultModal("行動制限", "本日は既に行動済みです（バイトまたは外出）。");
+                        return;
+                    }
+                    hasTakenDailyAction = true;
+                    if (gigWorkButton) {
+                        gigWorkButton.classList.add('btn-disabled');
+                        gigWorkButton.disabled = true;
+                    }
+                    if (outingButton) {
+                        outingButton.classList.add('btn-disabled');
+                        outingButton.disabled = true;
+                    }
+
+                    await generateIndustryNewsWithGemini();
+                });
+            }
+
+            if (newsModalCloseButton) {
+                newsModalCloseButton.addEventListener('click', () => {
+                    if (newsModal) newsModal.classList.remove('show');
+                });
+            }
+
+            if (placeholderPageCloseButton) {
+                placeholderPageCloseButton.addEventListener('click', () => {
+                    if (placeholderPageModal) placeholderPageModal.classList.remove('show');
+                });
+            }
+
+            if (nextDayButton) {
+                nextDayButton.addEventListener('click', () => {
+                    actionOccurredToday = false; 
+                    hasTakenDailyAction = false; 
+                    if (outingButton) {
+                        outingButton.classList.remove('btn-disabled'); 
+                        outingButton.disabled = false;
+                    }
+                    if (gigWorkButton) {
+                        gigWorkButton.classList.remove('btn-disabled'); 
+                        gigWorkButton.disabled = false;
+                    }
+                    
+                    const todayStr = getFormattedDate();
+                    const jobsForTodayIds = playerSchedule[todayStr] || [];
+                    let skippedJobsMessage = "";
+
+                    jobsForTodayIds.forEach(jobId => {
+                        const job = availableJobs.find(j => j.id === jobId);
+                        if (job && job.status === 'scheduled') { 
+                            job.status = 'cancelled_skipped';
+                            const client = clients.find(c => c.id === job.clientId);
+                            const trustPenalty = parseFloat((job.skillReq * 0.1 * 3).toFixed(1));
+                            if (client) {
+                                client.trust = Math.max(0, parseFloat((client.trust - trustPenalty).toFixed(1)));
+                            }
+                            const message = `本日の案件「${job.name}」(取引先: ${job.clientName}) を実行しなかったため、信用度が ${trustPenalty.toFixed(1)} 低下しました。`;
+                            addLog(message, true);
+                            skippedJobsMessage += message + "<br>";
+                        }
+                    });
+                    if (playerSchedule[todayStr]) {
+                        playerSchedule[todayStr] = playerSchedule[todayStr].filter(jobId => {
+                            const job = availableJobs.find(j => j.id === jobId);
+                            return !(job && job.status === 'cancelled_skipped');
+                        });
+                        if (playerSchedule[todayStr].length === 0) {
+                            delete playerSchedule[todayStr];
+                        }
+                    }
+
+                    if (skippedJobsMessage) {
+                        showResultModal("未実行案件ペナルティ", skippedJobsMessage);
+                    }
+                    
+                    if (stamina <= 0 && !eventModal.classList.contains('show')) {
+                        addLog("体力がゼロのため、強制的に1日休養します。", true);
+                        stamina = Math.min(100, parseFloat((stamina + 50).toFixed(1))); 
+                        stress = Math.max(0, parseFloat((stress - 5).toFixed(1))); 
+                    }
+
+                    if (triggerRandomEvent()) { 
+                        updateDisplay(); 
+                        return; 
+                    }
+
+                    totalDaysPassed++;
+                    currentDay++;
+                    const daysInCurrentMonth = getDaysInMonth(currentYear, currentMonth);
+                    let monthChanged = false;
+                    if (currentDay > daysInCurrentMonth) {
+                        handleEndOfMonth();
+                        if (nextDayButton.disabled) return;
+                        currentDay = 1;
+                        currentMonth++;
+                        monthChanged = true;
+                        if (currentMonth > 12) {
+                            currentMonth = 1;
+                            currentYear++;
+                            addLog(`${currentYear}年になりました！`, true);
+                        }
+                        addLog(`${currentMonth}月になりました。`);
+                    }
+                    
+                    if (stamina > 0) { 
+                        stamina = Math.min(100, parseFloat((stamina + 50).toFixed(1))); 
+                    }
+
+                    if (!monthChanged && !actionOccurredToday && !(totalDaysPassed > 1 && totalDaysPassed % 120 === 0 && reputation > 5)) {
+                    } else if (actionOccurredToday || monthChanged || (totalDaysPassed > 1 && totalDaysPassed % 120 === 0 && reputation > 5) ) {
+                        addLog(`--- ${currentYear}年${currentMonth}月${currentDay}日 (${totalDaysPassed}日目) ---`);
+                    }
+                    
+                    if (totalDaysPassed > 1 && totalDaysPassed % 120 === 0 && reputation > 5) {
+                        reputation = Math.max(0, parseFloat((reputation - 0.5).toFixed(1)));
+                        addLog("しばらく大きな成果がないため、全体評判がわずかに低下。", true);
+                    }
+                    updateDisplay(); 
+                    checkGameOver(); 
+                    if (nextDayButton.disabled) return; 
+                    if (totalDaysPassed % 2 === 0) generateAvailableJobs();
+                    else displayAvailableJobs(); 
+                    
+                    updateFullScheduleDisplay();
+                });
+            }
+        }
+
+
+        function getDaysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
+        function formatDate(year, month, day) {
+            return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+        function addDaysToDate(currentYear, currentMonth, currentDay, daysToAdd) {
+            const date = new Date(currentYear, currentMonth - 1, currentDay);
+            date.setDate(date.getDate() + daysToAdd);
+            return { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
+        }
+        function getFormattedDate(offset = 0) {
+            const date = new Date(currentYear, currentMonth - 1, currentDay);
+            date.setDate(date.getDate() + offset);
+            return formatDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
+        }
+
+        function updateClientTrustDisplay() {
+            clientTrustList.innerHTML = '';
+            clients.forEach(client => {
+                const clientDiv = document.createElement('div');
+                clientDiv.classList.add('relative', 'client-logo-wrapper', 'flex', 'flex-col', 'items-center'); 
+                clientDiv.dataset.clientId = client.id;
+                clientDiv.setAttribute('tabindex', '0'); 
+
+                const logoContainer = document.createElement('div');
+                logoContainer.classList.add('client-logo-container');
+                logoContainer.innerHTML = client.logoSvg || `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#D1D5DB"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="40" fill="#6B7280">?</text></svg>`;
+                
+                const trustValueOverlay = document.createElement('span');
+                trustValueOverlay.classList.add('client-trust-value-overlay');
+                trustValueOverlay.textContent = client.trust.toFixed(0);
+
+                logoContainer.appendChild(trustValueOverlay);
+                clientDiv.appendChild(logoContainer);
+                
+                const tooltip = document.createElement('div');
+                tooltip.classList.add('client-tooltip');
+                tooltip.innerHTML = `<b>${client.name}</b><br>信用度: ${client.trust.toFixed(1)}<br>受注回数: ${client.orderCount || 0}`;
+                clientDiv.appendChild(tooltip);
+                
+                clientTrustList.appendChild(clientDiv);
+            });
+        }
+
+
+        function updateDisplay() {
+            if (moneyDisplay) moneyDisplay.textContent = `${money.toLocaleString()}円`;
+            if (moneyDisplay && money < 0) moneyDisplay.classList.add('money-negative');
+            else if (moneyDisplay) moneyDisplay.classList.remove('money-negative');
+            
+            if (inspectionSkillDisplay) inspectionSkillDisplay.textContent = inspectionSkill.toFixed(1);
+            if (constructionSkillDisplay) constructionSkillDisplay.textContent = constructionSkill.toFixed(1);
+            if (reputationDisplay) reputationDisplay.textContent = reputation.toFixed(1);
+            if (officeLevelDisplay) officeLevelDisplay.textContent = `Lv${currentOfficeLevel}`; 
+            
+            if(staminaDisplay) staminaDisplay.textContent = Math.round(stamina);
+            if(staminaBar) staminaBar.style.width = `${Math.max(0, Math.min(100, parseFloat(stamina) || 0))}%`;
+            
+            if(stressDisplay) stressDisplay.textContent = Math.round(stress);
+            if(stressBar) stressBar.style.width = `${Math.max(0, Math.min(100, parseFloat(stress) || 0))}%`;
+
+            if (stressBar) {
+                if (stress > 70) {
+                    stressBar.classList.remove('stress-bar');
+                    stressBar.classList.add('stress-bar-high');
+                } else {
+                    stressBar.classList.remove('stress-bar-high');
+                    stressBar.classList.add('stress-bar');
+                }
+            }
+
+            if(fixedDateDisplayFooter) fixedDateDisplayFooter.textContent = `${currentYear}年${currentMonth}月${currentDay}日`;
+            if(fixedMoneyDisplay) fixedMoneyDisplay.textContent = `¥${money.toLocaleString()}`; 
+            if(currentMonthSalesDisplay) currentMonthSalesDisplay.textContent = `${currentMonthSalesTotal.toLocaleString()}円`;
+            if(incomeDueNextMonthDisplay) incomeDueNextMonthDisplay.textContent = `${incomeDueNextMonth.toLocaleString()}円`;
+            if(incomeDueThisMonthDisplay) incomeDueThisMonthDisplay.textContent = `${incomeDueThisMonth.toLocaleString()}円`;
+            updateClientTrustDisplay();
+        }
+
+        function addLog(message, isEvent = false) {
+            actionOccurredToday = true;
+            const logEntry = document.createElement('p');
+            const timePrefix = `[${currentYear}年${currentMonth}月${currentDay}日] `;
+            logEntry.textContent = timePrefix + message;
+            if (isEvent) logEntry.classList.add('font-semibold', 'text-indigo-600');
+            logArea.firstChild ? logArea.insertBefore(logEntry, logArea.firstChild) : logArea.appendChild(logEntry);
+            while (logArea.children.length > MAX_LOG_ENTRIES) {
+                logArea.removeChild(logArea.lastChild);
+            }
+        }
+        
+        function generateAvailableJobs() {
+            availableJobs = availableJobs.filter(job => job.status !== 'available' || (job.status === 'available' && Math.random() < 0.3));
+            const numberOfNewJobs = Math.floor(Math.random() * 2) + Math.floor(reputation / 20) + 1; 
+
+            for (let i = 0; i < numberOfNewJobs; i++) {
+                const client = clients[Math.floor(Math.random() * clients.length)];
+                const clientTrust = client.trust;
+
+                let possibleTemplates = jobTemplates;
+                if (clientTrust < 20) { 
+                    possibleTemplates = jobTemplates.filter(t => t.baseRewardTier === 1 && t.skillReq <= 3); 
+                } else if (clientTrust < 50) { 
+                    possibleTemplates = jobTemplates.filter(t => t.baseRewardTier <= 2 && t.skillReq <= 10);
+                } 
+
+                if (possibleTemplates.length === 0) possibleTemplates = jobTemplates.filter(t => t.baseRewardTier === 1 && t.skillReq <=3 ); 
+
+                const template = possibleTemplates[Math.floor(Math.random() * possibleTemplates.length)];
+                
+                let scheduledDateStr;
+                let attempts = 0;
+                const maxAttempts = 20;
+
+                do {
+                    const leadTime = Math.floor(Math.random() * (JOB_LEAD_TIME_MAX - JOB_LEAD_TIME_MIN + 1)) + JOB_LEAD_TIME_MIN;
+                    const scheduledDateObj = addDaysToDate(currentYear, currentMonth, currentDay, leadTime);
+                    scheduledDateStr = formatDate(scheduledDateObj.year, scheduledDateObj.month, scheduledDateObj.day);
+                    attempts++;
+                    if (attempts > maxAttempts) {
+                        scheduledDateStr = null;
+                        break;
+                    }
+                } while (
+                    availableJobs.some(job => job.clientId === client.id && job.scheduledDate === scheduledDateStr && job.status !== 'completed_success' && job.status !== 'completed_failure' && job.status !== 'cancelled_db') ||
+                    (playerSchedule[scheduledDateStr] && playerSchedule[scheduledDateStr].some(jobId => availableJobs.find(j => j.id === jobId)?.clientId === client.id))
+                );
+
+                if (!scheduledDateStr) continue;
+                
+                const finalReward = Math.round(getRewardByTierAndTrust(template.baseRewardTier, clientTrust) / 100) * 100;
+
+                const newJob = {
+                    id: `job-${totalDaysPassed}-${availableJobs.length}-${i}`,
+                    name: template.baseName,
+                    description: template.description,
+                    reward: finalReward,
+                    skillReq: template.skillReq,
+                    skillType: template.skillType,
+                    clientId: client.id,
+                    clientName: client.name,
+                    time: template.time,
+                    scheduledDate: scheduledDateStr,
+                    status: 'available',
+                    originalData: template
+                };
+                availableJobs.push(newJob);
+            }
+            displayAvailableJobs();
+        }
+        
+        function displayAvailableJobs() {
+            availableJobsList.innerHTML = '';
+            const unacceptedJobs = availableJobs.filter(job => job.status === 'available');
+            if (unacceptedJobs.length === 0) {
+                noAvailableJobsMessage.classList.remove('hidden');
+                noAvailableJobsMessage.classList.add('col-span-full');
+                return;
+            }
+            noAvailableJobsMessage.classList.add('hidden');
+            
+            unacceptedJobs.sort((a,b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+            unacceptedJobs.forEach(job => {
+                const jobCard = document.createElement('div');
+                jobCard.classList.add('mini-job-card', 'border');
+                const currentSkillLevel = job.skillType === 'inspection' ? inspectionSkill : constructionSkill;
+                const skillLabel = job.skillType === 'inspection' ? '点' : '工';
+                const dateParts = job.scheduledDate.split('-');
+                const dateDisplay = `${parseInt(dateParts[1], 10)}/${parseInt(dateParts[2], 10)}`;
+
+
+                if (currentSkillLevel >= job.skillReq) {
+                    jobCard.classList.add('bg-sky-200', 'border-sky-400');
+                } else {
+                    jobCard.classList.add('bg-slate-300', 'border-slate-500', 'opacity-80');
+                }
+                jobCard.dataset.jobId = job.id; 
+                jobCard.innerHTML = `
+                    <div class="mini-job-skill-info">
+                        <span class="mini-job-skill-type ${currentSkillLevel < job.skillReq ? 'text-slate-600' : 'text-sky-800'}">${skillLabel}</span> 
+                        <span class="mini-job-skill-req ${currentSkillLevel < job.skillReq ? 'text-red-600' : 'text-blue-800'}">${job.skillReq}</span>
+                    </div>
+                    <span class="mini-job-scheduled-date-card ${currentSkillLevel < job.skillReq ? 'text-slate-500' : 'text-sky-700'}">${dateDisplay}</span>
+                `;
+                jobCard.addEventListener('click', () => showJobDetailModal(job.id));
+                availableJobsList.appendChild(jobCard);
+            });
+        }
+        
+        function acceptAvailableJob(jobId) {
+            const job = availableJobs.find(j => j.id === jobId);
+            if (!job || job.status !== 'available') return;
+
+            const currentSkillLevel = job.originalData.skillType === 'inspection' ? inspectionSkill : constructionSkill;
+            if (currentSkillLevel < job.skillReq) {
+                showResultModal("受注失敗", `スキル不足です (必要${job.originalData.skillType === 'inspection' ? '点検' : '工事'}スキル: ${job.skillReq}, 現在: ${currentSkillLevel.toFixed(1)})`);
+                addLog(`案件「${job.name}」(取引先: ${job.clientName}, 予定日: ${job.scheduledDate}) の受注に失敗 (スキル不足)`);
+                return;
+            }
+            job.status = 'scheduled';
+            if (!playerSchedule[job.scheduledDate]) {
+                playerSchedule[job.scheduledDate] = [];
+            }
+            playerSchedule[job.scheduledDate].push(job.id);
+
+            const client = clients.find(c => c.id === job.clientId);
+            if(client) client.orderCount = (client.orderCount || 0) + 1;
+
+
+            addLog(`案件「${job.name}」(取引先: ${job.clientName}, 予定日: ${job.scheduledDate}) を受注しました。`, true);
+            displayAvailableJobs();
+            updateFullScheduleDisplay();
+        }
+
+        function updateFullScheduleDisplay() {
+            fullScheduleList.innerHTML = '';
+            const allScheduledJobItems = []; 
+            const todayStr = getFormattedDate();
+
+            for (const dateKey in playerSchedule) {
+                playerSchedule[dateKey].forEach(jobId => {
+                    const job = availableJobs.find(j => j.id === jobId);
+                    if (job && job.status === 'scheduled') { 
+                        allScheduledJobItems.push({
+                            id: jobId, 
+                            date: dateKey, 
+                            name: job.name, 
+                            reward: job.reward, 
+                            status: job.status,
+                            clientName: job.clientName,
+                            skillType: job.originalData.skillType 
+                        });
+                    }
+                });
+            }
+
+            if (allScheduledJobItems.length === 0) {
+                noFullScheduledJobsMessage.classList.remove('hidden');
+                return;
+            }
+            noFullScheduledJobsMessage.classList.add('hidden');
+
+            allScheduledJobItems.sort((a,b) => {
+                if (a.date === b.date) return 0;
+                return new Date(a.date) - new Date(b.date);
+            });
+
+            allScheduledJobItems.forEach(jobInfo => {
+                const jobDiv = document.createElement('div');
+                jobDiv.classList.add('schedule-item-wrapper', 'border', 'mb-1', 'relative'); 
+                jobDiv.setAttribute('tabindex', '0'); 
+
+                let bgColor = 'bg-purple-50 border-purple-200';
+                if (jobInfo.date === todayStr) {
+                    bgColor = 'today-job-highlight border-yellow-400';
+                }
+                jobDiv.classList.add(...bgColor.split(' '));
+                
+                const jobTypeDisplay = jobInfo.skillType === 'inspection' ? '点検' : '工事';
+                const dateParts = jobInfo.date.split('-');
+                const dateDisplay = `${parseInt(dateParts[1], 10)}月${parseInt(dateParts[2], 10)}日`;
+
+
+                jobDiv.innerHTML = `
+                    <div class="schedule-item-line">
+                        <span class="schedule-item-date font-semibold ${jobInfo.date === todayStr ? 'text-rose-600' : 'text-purple-700'}">${dateDisplay}</span>
+                        <span class="schedule-item-type font-medium">${jobTypeDisplay}</span>
+                        <span class="schedule-item-reward whitespace-nowrap">${jobInfo.reward.toLocaleString()}円</span>
+                    </div>
+                    <div class="schedule-item-tooltip">
+                        <b>${jobInfo.name}</b><br>
+                        取引先: ${jobInfo.clientName}<br>
+                        予定日: ${jobInfo.date}<br>
+                        報酬: ${jobInfo.reward.toLocaleString()}円
+                    </div>
+                `;
+
+                if (jobInfo.date === todayStr && jobInfo.status === 'scheduled') {
+                    const buttonContainer = document.createElement('div');
+                    buttonContainer.classList.add('mt-1');
+                    const executeButton = document.createElement('button');
+                    executeButton.textContent = 'GO!'; 
+                    executeButton.classList.add('btn', 'bg-blue-500', 'hover:bg-blue-600', 'text-white', 'font-semibold', 'py-1', 'px-3', 'rounded-md', 'text-xs'); 
+                    executeButton.dataset.jobId = jobInfo.id;
+                    executeButton.addEventListener('click', () => executeJobFromSchedule(jobInfo.id));
+                    buttonContainer.appendChild(executeButton);
+                    jobDiv.appendChild(buttonContainer);
+                } else if (jobInfo.status === 'completed_success' || jobInfo.status === 'completed_failure') {
+                    const reportButtonContainer = document.createElement('div');
+                    reportButtonContainer.classList.add('mt-1');
+                    const reportButton = document.createElement('button');
+                    reportButton.innerHTML = `✨ 報告書作成補助`;
+                    reportButton.classList.add('btn', 'w-full', 'bg-teal-500', 'hover:bg-teal-600', 'text-white', 'font-semibold', 'py-1', 'px-2', 'rounded-md', 'text-xs');
+                    reportButton.dataset.jobId = jobInfo.id;
+                    reportButton.addEventListener('click', () => {
+                        const jobToReport = availableJobs.find(j => j.id === jobInfo.id);
+                        if (jobToReport) generateReportWithGemini(jobToReport);
+                    });
+                    reportButtonContainer.appendChild(reportButton);
+                    jobDiv.appendChild(reportButtonContainer);
+                }
+                fullScheduleList.appendChild(jobDiv);
+            });
+        }
+        
+        function executeJobFromSchedule(jobId) {
+            const job = availableJobs.find(j => j.id === jobId);
+            if (!job || job.status !== 'scheduled' || job.scheduledDate !== getFormattedDate()) {
+                addLog(`案件「${job.name ? job.name : jobId}」は本日実行できません、または既に処理済みです。`);
+                showResultModal("実行不可", `案件「${job.name ? job.name : jobId}」は本日実行できません、または既に処理済みです。`);
+                return;
+            }
+
+            const todayStr = getFormattedDate();
+            const jobsForTodayIds = playerSchedule[todayStr] || [];
+            const otherScheduledJobsToday = jobsForTodayIds.filter(id => id !== jobId && availableJobs.find(j => j.id === id)?.status === 'scheduled');
+
+            executeSingleJob(job);
+
+            if (otherScheduledJobsToday.length > 0) {
+                addLog(`ダブルブッキングのため、他の案件をキャンセル処理します。`, true);
+                let dbMessage = `案件「${job.name}」を実行しました。<br>以下の案件はダブルブッキングによりキャンセルされました：<ul>`;
+                otherScheduledJobsToday.forEach(otherJobId => {
+                    const cancelledJob = availableJobs.find(j => j.id === otherJobId);
+                    if (cancelledJob && cancelledJob.status === 'scheduled') {
+                        const penaltyFee = Math.round(cancelledJob.reward * DOUBLE_BOOKING_CANCELLATION_FEE_RATE);
+                        money -= penaltyFee;
+                        reputation = Math.max(0, parseFloat((reputation - DOUBLE_BOOKING_REPUTATION_PENALTY).toFixed(1)));
+                        
+                        const client = clients.find(c => c.id === cancelledJob.clientId);
+                        if (client) {
+                            client.trust = Math.max(0, parseFloat((client.trust - (cancelledJob.skillReq * 0.1 * 2)).toFixed(1)));
+                        }
+
+                        cancelledJob.status = 'cancelled_db';
+                        dbMessage += `<li>${cancelledJob.name} (取引先: ${cancelledJob.clientName}, 違約金: ${penaltyFee.toLocaleString()}円, 全体評判: -${DOUBLE_BOOKING_REPUTATION_PENALTY.toFixed(1)}, 取引先信用度減)</li>`;
+                        addLog(`案件「${cancelledJob.name}」をDBキャンセル。違約金: ${penaltyFee.toLocaleString()}円, 全体評判-${DOUBLE_BOOKING_REPUTATION_PENALTY.toFixed(1)}, ${cancelledJob.clientName}の信用度減。`, true);
+                    }
+                });
+                dbMessage += `</ul>`;
+                setTimeout(() => showResultModal("ダブルブッキング処理完了", dbMessage), 100); 
+            }
+            
+            updateFullScheduleDisplay();
+            updateDisplay();
+        }
+
+        function executeSingleJob(job) {
+            if (!job || job.status !== 'scheduled') return;
+            
+            const staminaCost = parseFloat(job.originalData.time || 1) * 60; 
+            if (stamina < staminaCost + 10 && stamina > 0) { 
+                 addLog(`体力がかなり低下しています。無理は禁物です。(残り体力: ${stamina.toFixed(0)})`, true);
+                 showResultModal("体力低下警告", `体力がかなり低下しています。この案件を実行すると倒れてしまうかもしれません！(残り体力: ${stamina.toFixed(0)})`);
+            }
+            if (stamina <= 0) {
+                 addLog(`体力がゼロのため、案件「${job.name}」を実行できませんでした。強制的に1日休養します。`, true);
+                 showResultModal("行動不能", "体力がゼロです。本日はこれ以上行動できません。強制的に1日休養します。");
+                 job.status = 'scheduled'; 
+                 updateFullScheduleDisplay();
+                 return;
+            }
+
+            addLog(`案件「${job.name}」(取引先: ${job.clientName})の作業を開始します。体力-${staminaCost.toFixed(0)}`, true);
+            stamina = Math.max(0, parseFloat(stamina) - staminaCost);
+            
+            const currentSkillLevel = job.originalData.skillType === 'inspection' ? inspectionSkill : constructionSkill;
+            const skillDifference = currentSkillLevel - job.skillReq;
+            let successChance = 0.70; 
+            successChance += skillDifference * 0.03; 
+            successChance -= stress * 0.002; 
+            successChance -= (100 - stamina) * 0.0015; 
+            successChance = Math.max(0.05, Math.min(successChance, 0.99));
+
+            const randomRoll = Math.random();
+            let skillGain = 0;
+            const client = clients.find(c => c.id === job.clientId);
+            const repGainFromJob = parseFloat((job.skillReq * 0.1).toFixed(1));
+            const trustGainFromJob = parseFloat((job.skillReq * 0.1).toFixed(1));
+
+            if (randomRoll < successChance) {
+                currentMonthSalesTotal += job.reward;
+                if (!clientExperience[job.clientId]) clientExperience[job.clientId] = {};
+                const skillReqKey = `skillReq_${job.skillReq}_type_${job.originalData.skillType}`;
+                if (!clientExperience[job.clientId][skillReqKey]) clientExperience[job.clientId][skillReqKey] = 0;
+
+                if (clientExperience[job.clientId][skillReqKey] < SKILL_UP_LIMIT_PER_JOB_LEVEL) {
+                    skillGain = 0.1; 
+                    if (skillDifference > 0 && job.skillReq > 0) {
+                        skillGain += Math.min(0.2, skillDifference / (job.skillReq * 10)); 
+                    }
+                    skillGain = parseFloat(skillGain.toFixed(2));
+                    if (job.originalData.skillType === 'inspection') {
+                        inspectionSkill = Math.min(100, parseFloat((inspectionSkill + skillGain).toFixed(1)));
+                    } else if (job.originalData.skillType === 'construction') {
+                        constructionSkill = Math.min(100, parseFloat((constructionSkill + skillGain).toFixed(1)));
+                    }
+                    clientExperience[job.clientId][skillReqKey]++;
+                    addLog(`このレベルの案件(${job.clientName} - 必要${job.originalData.skillType === 'inspection' ? '点検' : '工事'}スキル${job.skillReq})の経験値 (${clientExperience[job.clientId][skillReqKey]}/${SKILL_UP_LIMIT_PER_JOB_LEVEL}) を獲得。`);
+                } else {
+                    skillGain = 0;
+                    addLog(`このレベルの案件(${job.clientName} - 必要${job.originalData.skillType === 'inspection' ? '点検' : '工事'}スキル${job.skillReq})は経験上限に達したため、スキルは上昇しません。`);
+                }
+                
+                reputation = Math.min(100, parseFloat((reputation + repGainFromJob).toFixed(1)));
+                if (client) client.trust = Math.min(100, parseFloat((client.trust + trustGainFromJob).toFixed(1)));
+                stress = Math.max(0, parseFloat((stress + (job.skillReq * 0.5)).toFixed(1))); 
+                job.status = 'completed_success';
+                showResultModal("業務成功！", `案件「${job.name}」を無事完了！<br>取引先: ${job.clientName}<br>売上 ${job.reward.toLocaleString()}円 を当月売上に計上。<br>スキル: +${skillGain.toFixed(1)}, 全体評判: +${repGainFromJob.toFixed(1)}, ${job.clientName}信用度: +${trustGainFromJob.toFixed(1)}`);
+                addLog(`案件「${job.name}」成功。売上: ${job.reward.toLocaleString()}円。スキル+${skillGain.toFixed(1)}, 全体評判+${repGainFromJob.toFixed(1)}, ${job.clientName}信用度+${trustGainFromJob.toFixed(1)}`);
+            } else {
+                const reputationLoss = parseFloat((job.skillReq * 0.1 * 2).toFixed(1)); 
+                const trustLoss = parseFloat((job.skillReq * 0.1 * 2).toFixed(1));   
+                reputation = Math.max(0, parseFloat((reputation - reputationLoss).toFixed(1)));
+                if (client) client.trust = Math.max(0, parseFloat((client.trust - trustLoss).toFixed(1)));
+                stress = Math.min(100, parseFloat((stress + (job.skillReq * 1.5)).toFixed(1))); 
+                job.status = 'completed_failure';
+                
+                let failureMessage = `案件「${job.name}」でミスが発生…<br>取引先: ${job.clientName}<br>全体評判: -${reputationLoss.toFixed(1)}, ${job.clientName}信用度: -${trustLoss.toFixed(1)}, ストレス増加`;
+                let logMessage = `案件「${job.name}」失敗。全体評判-${reputationLoss.toFixed(1)}, ${job.clientName}信用度-${trustLoss.toFixed(1)}。売上なし。ストレス増加。`;
+
+                skillGain = 0.05; 
+                if (skillDifference > 0 && job.skillReq > 0) {
+                    skillGain += Math.min(0.1, skillDifference / (job.skillReq * 20));
+                }
+                skillGain = parseFloat(skillGain.toFixed(2));
+
+                if (Math.random() < 0.20) { 
+                    skillGain = parseFloat((skillGain * 2).toFixed(2)); 
+                    const criticalFailureMessage = "受注した仕事で重大なミスを犯してしまい、取引先に損害を与えてしまいました。しかし失敗から多くの事を学びました";
+                    failureMessage += `<br><br><b class="text-red-500">${criticalFailureMessage}</b><br>スキルが通常より多く (+${skillGain.toFixed(1)}) 上昇しました！`;
+                    logMessage += ` 重大ミスから学びスキルボーナス(+${skillGain.toFixed(1)})。`;
+                    addLog(criticalFailureMessage + ` スキルボーナス(+${skillGain.toFixed(1)})。`, true);
+                } else {
+                    logMessage += ` スキル+${skillGain.toFixed(1)}。`;
+                }
+                if (job.originalData.skillType === 'inspection') {
+                    inspectionSkill = Math.min(100, parseFloat((inspectionSkill + skillGain).toFixed(1)));
+                } else if (job.originalData.skillType === 'construction') {
+                    constructionSkill = Math.min(100, parseFloat((constructionSkill + skillGain).toFixed(1)));
+                }
+                showResultModal("業務失敗…", failureMessage);
+                addLog(logMessage);
+            }
+        }
+
+        function handleEndOfMonth() {
+            actionOccurredToday = true;
+            const previousMonth = currentMonth; 
+            const previousYear = currentYear; 
+            addLog("--- 月末処理開始 ---", true);
+            let monthlyIncome = 0;
+            let monthlyExpenses = 0;
+            let expensesDetail = ""; 
+
+            let currentRent = officeRent; 
+
+            const utilities = 15000;
+            const phone = 10000;
+            let taxes = 0;
+
+            if (currentYear === 1) {
+                taxes = 50000;
+            } else {
+                taxes = 50000; 
+            }
+
+            monthlyExpenses = currentRent + utilities + phone + taxes;
+            expensesDetail = `
+                &nbsp;&nbsp;家賃: ${currentRent.toLocaleString()}円<br>
+                &nbsp;&nbsp;光熱費: ${utilities.toLocaleString()}円<br>
+                &nbsp;&nbsp;携帯料金: ${phone.toLocaleString()}円<br>
+                &nbsp;&nbsp;税金: ${taxes.toLocaleString()}円<br>
+            `;
+
+            if (incomeDueThisMonth > 0) {
+                money += incomeDueThisMonth;
+                monthlyIncome = incomeDueThisMonth;
+                addLog(`売上 ${incomeDueThisMonth.toLocaleString()}円 が入金されました。現預金: ${money.toLocaleString()}円`, true);
+            } else { 
+                addLog("今月入金される売上はありませんでした。");
+            }
+            incomeDueThisMonth = incomeDueNextMonth;
+            addLog(`翌月入金予定額が ${incomeDueThisMonth.toLocaleString()}円 に確定しました。`);
+            incomeDueNextMonth = currentMonthSalesTotal;
+            addLog(`翌々月入金予定額が ${incomeDueNextMonth.toLocaleString()}円 に計上されました。`);
+            currentMonthSalesTotal = 0;
+            addLog("当月売上カウンターをリセット。");
+            
+            money -= monthlyExpenses;
+            addLog(`月次経費 ${monthlyExpenses.toLocaleString()}円 引落。現預金: ${money.toLocaleString()}円`, true);
+            
+            updateDisplay();
+            checkGameOver(); 
+            
+            const monthlyProfit = monthlyIncome - monthlyExpenses;
+            let profitLossText = monthlyProfit >= 0 ? "利益" : "損失";
+            let profitLossColor = monthlyProfit >= 0 ? "text-green-600" : "text-red-600";
+
+            const summaryMessage = `
+                <b>収入合計: ${monthlyIncome.toLocaleString()}円</b><br>
+                <hr>
+                <b>支出合計: ${monthlyExpenses.toLocaleString()}円</b><br>
+                ${expensesDetail}
+                <hr>
+                <b>月次${profitLossText}: <span class="${profitLossColor} font-semibold">${Math.abs(monthlyProfit).toLocaleString()}円</span></b><br>
+                <hr>
+                <b>月末現預金: ${money.toLocaleString()}円</b>
+            `;
+            setTimeout(() => showResultModal(`${previousYear}年${previousMonth}月度 収支報告`, summaryMessage), 100); 
+
+            addLog("--- 月末処理完了 ---", true);
+        }
+        
+        function showResultModal(title, message) { 
+            resultModalTitle.textContent = title;
+            resultModalMessage.innerHTML = message;
+            resultModalElement.classList.add('show');
+        }
+
+
+        function triggerRandomEvent() {
+            const eventRoll = Math.random();
+            let eventToTrigger = null;
+
+            for (const event of gameEvents) {
+                let chance = 0;
+                if (typeof event.triggerChance === 'function') {
+                    chance = event.triggerChance(currentYear);
+                } else {
+                    chance = event.triggerChance || 0;
+                }
+
+                if (eventRoll < chance && !eventModal.classList.contains('show') && !jobDetailModal.classList.contains('show') && !resultModalElement.classList.contains('show') && !newsModal.classList.contains('show') && !outingMenuModal.classList.contains('show') && !placeholderPageModal.classList.contains('show')) {
+                    eventToTrigger = event;
+                    break; 
+                }
+            }
+
+            if (eventToTrigger) {
+                currentEvent = eventToTrigger;
+                eventTitle.textContent = currentEvent.title;
+                let descriptionText = currentEvent.description;
+                if (typeof currentEvent.description === 'function') {
+                    let tempJobForEvent = {};
+                    if (currentEvent.assignClient) {
+                        const randomClient = clients[Math.floor(Math.random() * clients.length)];
+                        tempJobForEvent.clientName = randomClient.name;
+                        currentEvent.assignedClientId = randomClient.id; 
+                    }
+                    descriptionText = currentEvent.description(tempJobForEvent);
+                }
+                eventDescription.textContent = descriptionText;
+
+                eventChoicesContainer.innerHTML = '';
+                currentEvent.choices.forEach((choice, index) => {
+                    const button = document.createElement('button');
+                    button.textContent = choice.text;
+                    button.classList.add('btn', 'w-full', 'bg-sky-500', 'hover:bg-sky-600', 'text-white', 'font-semibold', 'py-2', 'px-4', 'rounded-lg', 'text-sm');
+                    button.addEventListener('click', () => handleEventChoice(index));
+                    eventChoicesContainer.appendChild(button);
+                });
+                eventModal.classList.add('show');
+                nextDayButton.disabled = true; 
+                return true; 
+            }
+            return false; 
+        }
+
+        function handleEventChoice(choiceIndex) {
+            if (!currentEvent) return;
+            const choice = currentEvent.choices[choiceIndex];
+            const randomRoll = Math.random();
+            let result, resultMessageText;
+
+            if (randomRoll < choice.successRate) {
+                result = choice.successResult;
+                resultMessageText = "結果: 成功！<br>";
+            } else {
+                result = choice.failureResult;
+                resultMessageText = "結果: 残念…<br>";
+            }
+            
+            let clientForEventMessage = null;
+            if (result.trustTarget === 'assigned' && currentEvent.assignedClientId) {
+                 clientForEventMessage = clients.find(c => c.id === currentEvent.assignedClientId);
+            }
+
+            if (result.money) money += result.money;
+            if (result.inspectionSkill) inspectionSkill = Math.min(100, Math.max(0, parseFloat((inspectionSkill + result.inspectionSkill).toFixed(1))));
+            if (result.constructionSkill) constructionSkill = Math.min(100, Math.max(0, parseFloat((constructionSkill + result.constructionSkill).toFixed(1))));
+            if (result.reputation) reputation = Math.min(100, Math.max(0, parseFloat((reputation + result.reputation).toFixed(1))));
+            if (result.stamina) stamina = Math.min(100, Math.max(0, parseFloat((stamina + result.stamina).toFixed(1))));
+            if (result.stress) stress = Math.min(100, Math.max(0, parseFloat((stress + result.stress).toFixed(1))));
+            
+            if (result.trustTarget === 'assigned' && currentEvent.assignedClientId && result.trustChange) {
+                const targetClient = clients.find(c => c.id === currentEvent.assignedClientId);
+                if (targetClient) {
+                    targetClient.trust = Math.min(100, Math.max(0, parseFloat((targetClient.trust + result.trustChange).toFixed(1))));
+                }
+            }
+            
+            let messageToDisplay = result.message;
+            if (typeof result.message === 'function') {
+                 messageToDisplay = result.message(clientForEventMessage ? clientForEventMessage.name : "ある取引先");
+            }
+
+            resultMessageText += messageToDisplay;
+
+            showResultModal(currentEvent.title + " - 結果", resultMessageText);
+            addLog(`イベント「${currentEvent.title}」で「${choice.text}」を選択。結果: ${messageToDisplay.replace(/<br>/g, ' ')}`, true);
+
+            eventModal.classList.remove('show');
+            nextDayButton.disabled = false; 
+            currentEvent = null;
+            updateDisplay();
+        }
+
+
+        async function generateReportWithGemini(job) {
+            reportModalContent.innerHTML = '<p class="text-center text-slate-500">報告書を生成中です...</p>';
+            reportModal.classList.add('show');
+
+            const playerName = "消防たろう"; 
+            const resultText = job.status === 'completed_success' ? '成功' : (job.status === 'completed_failure' ? '失敗' : '不明');
+            let prompt = `以下の情報に基づいて、消防設備点検の作業報告書の簡潔なドラフトを作成してください。提出先は${job.clientName}です。
+
+作業実施日: ${job.scheduledDate}
+作業件名: ${job.name}
+作業結果: ${resultText}
+`;
+            if (job.status === 'completed_failure') {
+                prompt += `失敗理由・状況: 作業中に軽微なミスが発生し、期待された成果を得られませんでした。\n`;
+            }
+            prompt += `特記事項: 特になし。\n担当者: ${playerName}
+
+報告書は以下の項目を必ず含めてください:
+1. 作業実施日
+2. 御社名
+3. 作業件名
+4. 作業内容と結果概要
+5. 特記事項`;
+
+            try {
+                let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error("Gemini API Error:", errorData);
+                    throw new Error(`Gemini API request failed with status ${response.status}: ${errorData.error?.message || 'Unknown error'}`);
+                }
+                
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const generatedText = result.candidates[0].content.parts[0].text;
+                    reportModalContent.textContent = generatedText;
+                    addLog(`案件「${job.name}」の報告書ドラフトをAIが作成しました。`);
+                } else {
+                    console.error("Gemini API response format error:", result);
+                    reportModalContent.textContent = "報告書の生成に失敗しました。(レスポンス形式エラー)";
+                    addLog(`AIによる報告書生成に失敗しました (レスポンス形式エラー)。`);
+                }
+            } catch (error) {
+                console.error("Error generating report with Gemini:", error);
+                reportModalContent.textContent = `報告書の生成に失敗しました。\nエラー: ${error.message}`;
+                addLog(`AIによる報告書生成に失敗しました: ${error.message}`);
+            }
+        }
+
+        async function generateIndustryNewsWithGemini() {
+            newsModalContent.innerHTML = '<p class="text-center text-slate-500">ニュース記事を生成中です...</p>';
+            newsModal.classList.add('show');
+
+            const prompt = `あなたは消防設備業界の専門ジャーナリストです。最近の消防設備業界の架空のニュースや技術トレンドについて、200字程度の短い記事を1つ作成してください。内容は、新しい法律の動き、画期的な新技術、業界の課題、市場の動向など、プレイヤーが興味を持ちそうなものにしてください。`;
+
+            try {
+                let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error("Gemini API Error for News:", errorData);
+                    throw new Error(`Gemini API request failed with status ${response.status}: ${errorData.error?.message || 'Unknown error'}`);
+                }
+                
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const generatedText = result.candidates[0].content.parts[0].text;
+                    newsModalContent.textContent = generatedText;
+                    addLog(`AIによる業界ニュースを取得しました。`);
+                } else {
+                    console.error("Gemini API response format error for News:", result);
+                    newsModalContent.textContent = "ニュース記事の生成に失敗しました。(レスポンス形式エラー)";
+                    addLog(`AIによる業界ニュース取得に失敗しました (レスポンス形式エラー)。`);
+                }
+            } catch (error) {
+                console.error("Error generating industry news with Gemini:", error);
+                newsModalContent.textContent = `ニュース記事の生成に失敗しました。\nエラー: ${error.message}`;
+                addLog(`AIによる業界ニュース取得に失敗しました: ${error.message}`);
+            }
+        }
+
+
+        function checkGameOver() {
+            if (money < 0) {
+                daysInRed++;
+                addLog(`資金がマイナスです。赤字 ${daysInRed} 日目。(連続${MAX_DAYS_IN_RED}日でゲームオーバー)`, true);
+                if (daysInRed >= MAX_DAYS_IN_RED) {
+                    gameOver(`資金が${MAX_DAYS_IN_RED}日間連続でマイナスとなり、事業継続が不可能になりました…`);
+                }
+            } else {
+                if (daysInRed > 0) addLog("資金がプラスに回復しました！", true);
+                daysInRed = 0; 
+            }
+        }
+
+        function gameOver(message) {
+            showResultModal("ゲームオーバー", `${message}<br><br>最終実績:<br>現預金: ${money.toLocaleString()}円<br>点検スキル: ${inspectionSkill.toFixed(1)}<br>工事スキル: ${constructionSkill.toFixed(1)}<br>全体評判: ${reputation.toFixed(1)}<br>体力: ${stamina.toFixed(0)}<br>ストレス: ${stress.toFixed(0)}<br>経過: ${currentYear}年${currentMonth}月${currentDay}日 (${totalDaysPassed}日)`);
+            addLog(message);
+            nextDayButton.disabled = true;
+            nextDayButton.classList.add('opacity-50', 'cursor-not-allowed');
+            nextDayButton.innerHTML = `<span class="fixed-action-button-text">ゲーム終了</span>`;
+            document.querySelectorAll('.accept-available-job-button, .execute-job-button').forEach(button => {
+                button.disabled = true;
+                button.classList.add('opacity-50', 'cursor-not-allowed');
+            });
+        }
+
+        initializeGame();
+      });
+    </script>
+</body>
+</html>
