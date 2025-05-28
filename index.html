@@ -1402,14 +1402,22 @@
 
                 if (jobInfo.date === todayStr && jobInfo.status === 'scheduled') {
                     const buttonContainer = document.createElement('div');
-                    buttonContainer.classList.add('mt-1');
+                    // mt-1 を削除し、ボタン自体のマージンで調整
                     const executeButton = document.createElement('button');
                     executeButton.textContent = 'GO!'; 
-                    executeButton.classList.add('btn', 'bg-blue-500', 'hover:bg-blue-600', 'text-white', 'font-semibold', 'py-1', 'px-3', 'rounded-md', 'text-xs'); 
+                    executeButton.classList.add('btn', 'bg-blue-500', 'hover:bg-blue-600', 'text-white', 'font-semibold', 'py-1', 'px-3', 'rounded-md', 'text-xs', 'mb-1'); 
                     executeButton.dataset.jobId = jobInfo.id;
                     executeButton.addEventListener('click', () => executeJobFromSchedule(jobInfo.id));
-                    buttonContainer.appendChild(executeButton);
-                    jobDiv.appendChild(buttonContainer);
+                    
+                    const scheduleLine = jobDiv.querySelector('.schedule-item-line');
+                    if (scheduleLine) {
+                        scheduleLine.insertBefore(buttonContainer, scheduleLine.querySelector('.schedule-item-reward'));
+                        buttonContainer.appendChild(executeButton);
+                    } else { 
+                        buttonContainer.appendChild(executeButton);
+                        jobDiv.appendChild(buttonContainer);
+                    }
+
                 } else if (jobInfo.status === 'completed_success' || jobInfo.status === 'completed_failure') {
                     const reportButtonContainer = document.createElement('div');
                     reportButtonContainer.classList.add('mt-1');
