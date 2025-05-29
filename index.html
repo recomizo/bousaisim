@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>消防設備個人事業シミュレーション</title>
+    <title>消防設備個人事業シミュレーションv6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -324,7 +324,7 @@
 
     <div class="container mx-auto max-w-6xl w-full bg-white rounded-xl shadow-2xl p-6 md:p-8 space-y-6">
         <header class="text-center border-b pb-4 border-slate-200">
-            <h1 class="text-lg md:text-xl font-bold text-sky-600">消防設備個人事業シミュレーション</h1>
+            <h1 class="text-lg md:text-xl font-bold text-sky-600">消防設備個人事業シミュレーション v5</h1>
         </header>
 
         <section class="player-status-bar bg-slate-100 p-2 rounded-lg shadow-sm">
@@ -409,17 +409,13 @@
             </div>
         </section>
 
-        <section class="financial-info grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-6 pt-6 border-t border-slate-200">
+        <section class="financial-info grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-6 pt-6 border-t border-slate-200">
             <div class="bg-lime-50 p-3 rounded-lg shadow">
-                <p class="font-medium text-lime-700">当月売上(未入金):</p>
+                <p class="font-medium text-lime-700">今月分売上</p>
                 <p id="current-month-sales" class="font-semibold text-lime-600">0円</p>
             </div>
-            <div class="bg-teal-50 p-3 rounded-lg shadow">
-                <p class="font-medium text-teal-700">翌月末入金予定:</p>
-                <p id="income-due-next-month" class="font-semibold text-teal-600">0円</p>
-            </div>
             <div class="bg-cyan-50 p-3 rounded-lg shadow">
-                <p class="font-medium text-cyan-700">当月末入金予定:</p>
+                <p class="font-medium text-cyan-700">今月末入金予定</p>
                 <p id="income-due-this-month" class="font-semibold text-cyan-600">0円</p>
             </div>
         </section>
@@ -539,6 +535,80 @@
 
     <script>
       window.addEventListener('DOMContentLoaded', () => {
+        
+        function saveGameData() {
+            const gameState = {
+                money,
+                inspectionSkill,
+                constructionSkill,
+                reputation,
+                stamina,
+                stress,
+                currentYear,
+                currentMonth,
+                currentDay,
+                totalDaysPassed,
+                currentMonthSalesTotal,
+                incomeDueThisMonth, // 今月末入金予定 (前月の売上)
+                availableJobs,
+                playerSchedule,
+                daysInRed,
+                clientExperience,
+                skillUpFromEatingOutTotal,
+                currentOfficeLevel,
+                officeRent,
+                clients: clients.map(c => ({id: c.id, trust: c.trust, orderCount: c.orderCount }))
+            };
+            try {
+                localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+            } catch (e) {
+                console.error("セーブデータの保存に失敗しました。", e);
+            }
+        }
+
+        function loadGameData() {
+            try {
+                const savedData = localStorage.getItem(SAVE_KEY);
+                if (savedData) {
+                    const gameState = JSON.parse(savedData);
+                    money = gameState.money !== undefined ? gameState.money : 500000;
+                    inspectionSkill = gameState.inspectionSkill !== undefined ? gameState.inspectionSkill : 1.0;
+                    constructionSkill = gameState.constructionSkill !== undefined ? gameState.constructionSkill : 1.0;
+                    reputation = gameState.reputation !== undefined ? gameState.reputation : 0;
+                    stamina = gameState.stamina !== undefined ? gameState.stamina : 100;
+                    stress = gameState.stress !== undefined ? gameState.stress : 0;
+                    currentYear = gameState.currentYear !== undefined ? gameState.currentYear : 1;
+                    currentMonth = gameState.currentMonth !== undefined ? gameState.currentMonth : 1;
+                    currentDay = gameState.currentDay !== undefined ? gameState.currentDay : 1;
+                    totalDaysPassed = gameState.totalDaysPassed !== undefined ? gameState.totalDaysPassed : 1;
+                    currentMonthSalesTotal = gameState.currentMonthSalesTotal !== undefined ? gameState.currentMonthSalesTotal : 0;
+                    incomeDueThisMonth = gameState.incomeDueThisMonth !== undefined ? gameState.incomeDueThisMonth : 0; 
+                    availableJobs = gameState.availableJobs || [];
+                    playerSchedule = gameState.playerSchedule || {};
+                    daysInRed = gameState.daysInRed || 0;
+                    clientExperience = gameState.clientExperience || {};
+                     if (gameState.clients) {
+                        clients.forEach(client => {
+                            const savedClientData = gameState.clients.find(sc => sc.id === client.id);
+                            if (savedClientData) {
+                                client.trust = savedClientData.trust !== undefined ? savedClientData.trust : 0;
+                                client.orderCount = savedClientData.orderCount !== undefined ? savedClientData.orderCount : 0;
+                            }
+                        });
+                    }
+                    skillUpFromEatingOutTotal = gameState.skillUpFromEatingOutTotal || 0;
+                    currentOfficeLevel = gameState.currentOfficeLevel || 1;
+                    officeRent = gameState.officeRent || 40000;
+                    
+                    return true; 
+                }
+            } catch (e) {
+                console.error("セーブデータの読み込みに失敗しました。", e);
+                localStorage.removeItem(SAVE_KEY); 
+            }
+            return false; 
+        }
+
         const moneyDisplay = document.getElementById('money');
         const inspectionSkillDisplay = document.getElementById('inspection-skill');
         const constructionSkillDisplay = document.getElementById('construction-skill');
@@ -547,8 +617,9 @@
         const fixedDateDisplayFooter = document.getElementById('fixed-date-display-footer');
         const clientTrustList = document.getElementById('client-trust-list');
         const currentMonthSalesDisplay = document.getElementById('current-month-sales');
-        const incomeDueNextMonthDisplay = document.getElementById('income-due-next-month');
-        const incomeDueThisMonthDisplay = document.getElementById('income-due-this-month');
+        const incomeDueThisMonthDisplay = document.getElementById('income-due-this-month'); 
+        const incomeDueNextMonthDisplay = document.getElementById('income-due-next-month'); // HTMLから削除済み、JSからも削除
+
         const availableJobsList = document.getElementById('available-jobs-list');
         const noAvailableJobsMessage = document.getElementById('no-available-jobs-message');
         const fullScheduleList = document.getElementById('full-schedule-list');
@@ -606,7 +677,7 @@
         const newsModalContent = document.getElementById('news-modal-content');
         const newsModalCloseButton = document.getElementById('news-modal-close-button');
 
-        const SAVE_KEY = 'fireSafetyGameSaveData_v1';
+        const SAVE_KEY = 'fireSafetyGameSaveData_v6'; 
 
 
         let money = 500000;
@@ -619,9 +690,9 @@
         let currentMonth = 1;
         let currentDay = 1;
         let totalDaysPassed = 1;
-        let currentMonthSalesTotal = 0;
-        let incomeDueNextMonth = 0;
-        let incomeDueThisMonth = 0;
+        let currentMonthSalesTotal = 0;      // 今月発生した売上の合計
+        let incomeDueThisMonth = 0;          // 今月末に入金される予定の金額 (前月の売上)
+        
         let availableJobs = [];
         let playerSchedule = {};
         let daysInRed = 0;
@@ -829,92 +900,9 @@
             }
             if (jobDetailModal) jobDetailModal.classList.add('show');
         }
-
-        function saveGameData() {
-            const gameState = {
-                money,
-                inspectionSkill,
-                constructionSkill,
-                reputation,
-                stamina,
-                stress,
-                currentYear,
-                currentMonth,
-                currentDay,
-                totalDaysPassed,
-                currentMonthSalesTotal,
-                incomeDueNextMonth,
-                incomeDueThisMonth,
-                availableJobs,
-                playerSchedule,
-                daysInRed,
-                clientExperience,
-                skillUpFromEatingOutTotal,
-                currentOfficeLevel,
-                officeRent,
-                clients // クライアントの信頼度と受注回数も保存
-            };
-            try {
-                localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
-                addLog("ゲームデータを保存しました。");
-            } catch (e) {
-                console.error("セーブデータの保存に失敗しました。", e);
-                addLog("ゲームデータの保存に失敗しました。", true);
-            }
-        }
-
-        function loadGameData() {
-            try {
-                const savedData = localStorage.getItem(SAVE_KEY);
-                if (savedData) {
-                    const gameState = JSON.parse(savedData);
-                    money = gameState.money !== undefined ? gameState.money : 500000;
-                    inspectionSkill = gameState.inspectionSkill !== undefined ? gameState.inspectionSkill : 1.0;
-                    constructionSkill = gameState.constructionSkill !== undefined ? gameState.constructionSkill : 1.0;
-                    reputation = gameState.reputation !== undefined ? gameState.reputation : 0;
-                    stamina = gameState.stamina !== undefined ? gameState.stamina : 100;
-                    stress = gameState.stress !== undefined ? gameState.stress : 0;
-                    currentYear = gameState.currentYear !== undefined ? gameState.currentYear : 1;
-                    currentMonth = gameState.currentMonth !== undefined ? gameState.currentMonth : 1;
-                    currentDay = gameState.currentDay !== undefined ? gameState.currentDay : 1;
-                    totalDaysPassed = gameState.totalDaysPassed !== undefined ? gameState.totalDaysPassed : 1;
-                    currentMonthSalesTotal = gameState.currentMonthSalesTotal !== undefined ? gameState.currentMonthSalesTotal : 0;
-                    incomeDueNextMonth = gameState.incomeDueNextMonth !== undefined ? gameState.incomeDueNextMonth : 0;
-                    incomeDueThisMonth = gameState.incomeDueThisMonth !== undefined ? gameState.incomeDueThisMonth : 0;
-                    availableJobs = gameState.availableJobs || [];
-                    playerSchedule = gameState.playerSchedule || {};
-                    daysInRed = gameState.daysInRed || 0;
-                    clientExperience = gameState.clientExperience || {};
-                    skillUpFromEatingOutTotal = gameState.skillUpFromEatingOutTotal || 0;
-                    currentOfficeLevel = gameState.currentOfficeLevel || 1;
-                    officeRent = gameState.officeRent || 40000;
-
-                    if (gameState.clients) {
-                        clients.forEach(client => {
-                            const savedClient = gameState.clients.find(sc => sc.id === client.id);
-                            if (savedClient) {
-                                client.trust = savedClient.trust !== undefined ? savedClient.trust : 0;
-                                client.orderCount = savedClient.orderCount !== undefined ? savedClient.orderCount : 0;
-                            }
-                        });
-                    }
-                    
-                    addLog("保存されたゲームデータを読み込みました。");
-                    return true; 
-                }
-            } catch (e) {
-                console.error("セーブデータの読み込みに失敗しました。", e);
-                addLog("ゲームデータの読み込みに失敗しました。", true);
-                localStorage.removeItem(SAVE_KEY); // 破損データの可能性があるので削除
-            }
-            return false; 
-        }
-
-
+        
         function initializeGame() {
-            const dataLoaded = loadGameData();
-
-            if (!dataLoaded) {
+            if (!loadGameData()) {
                 clients.forEach(c => {
                     clientExperience[c.id] = {};
                     if (typeof c.orderCount === 'undefined') { 
@@ -923,10 +911,11 @@
                 });
                 generateAvailableJobs();
                 addLog("消防設備個人事業を開始しました！取引先との信頼関係を築き上げましょう。");
+            } else {
+                 addLog("保存されたゲームデータを読み込みました。");
             }
-            
             updateDisplay();
-            displayAvailableJobs(); // ロード後/初期化後いずれも表示更新
+            displayAvailableJobs(); 
             updateFullScheduleDisplay();
 
 
@@ -1176,7 +1165,7 @@
                     const daysInCurrentMonth = getDaysInMonth(currentYear, currentMonth);
                     let monthChanged = false;
                     if (currentDay > daysInCurrentMonth) {
-                        handleEndOfMonth();
+                        handleEndOfMonth(); 
                         if (nextDayButton.disabled) return;
                         currentDay = 1;
                         currentMonth++;
@@ -1289,8 +1278,10 @@
             if(fixedDateDisplayFooter) fixedDateDisplayFooter.textContent = `${currentYear}年${currentMonth}月${currentDay}日`;
             if(fixedMoneyDisplay) fixedMoneyDisplay.textContent = `¥${money.toLocaleString()}`; 
             if(currentMonthSalesDisplay) currentMonthSalesDisplay.textContent = `${currentMonthSalesTotal.toLocaleString()}円`;
-            if(incomeDueNextMonthDisplay) incomeDueNextMonthDisplay.textContent = `${incomeDueNextMonth.toLocaleString()}円`;
-            if(incomeDueThisMonthDisplay) incomeDueThisMonthDisplay.textContent = `${incomeDueThisMonth.toLocaleString()}円`;
+            if(incomeDueThisMonthDisplay) incomeDueThisMonthDisplay.textContent = `${incomeDueThisMonth.toLocaleString()}円`; 
+            // incomeDueNextMonthDisplay はHTMLから削除済みのため、ここでの更新も不要
+
+
             updateClientTrustDisplay();
         }
 
@@ -1592,10 +1583,16 @@
             const currentSkillLevel = job.originalData.skillType === 'inspection' ? inspectionSkill : constructionSkill;
             const skillDifference = currentSkillLevel - job.skillReq;
             let successChance = 0.70; 
-            successChance += skillDifference * 0.03; 
-            successChance -= stress * 0.002; 
-            successChance -= (100 - stamina) * 0.0015; 
-            successChance = Math.max(0.05, Math.min(successChance, 0.99));
+
+            if (job.skillReq === 1) { 
+                successChance = 1.0;
+            } else {
+                successChance += skillDifference * 0.03; 
+                successChance -= stress * 0.002; 
+                successChance -= (100 - stamina) * 0.0015; 
+                successChance = Math.max(0.05, Math.min(successChance, 0.99));
+            }
+
 
             const randomRoll = Math.random();
             let skillGain = 0;
@@ -1674,21 +1671,26 @@
             const previousMonth = currentMonth; 
             const previousYear = currentYear; 
             addLog("--- 月末処理開始 ---", true);
-            let monthlyIncome = 0;
+            
+            let incomeReceivedThisMonth = incomeDueThisMonth; 
+            money += incomeReceivedThisMonth;
+            if (incomeReceivedThisMonth > 0) {
+                addLog(`【入金】${incomeReceivedThisMonth.toLocaleString()}円が振り込まれました。(前月発生売上分)`);
+            } else {
+                addLog("今月末に振り込まれる予定の売上はありませんでした。");
+            }
+            
+            incomeDueThisMonth = currentMonthSalesTotal; // 当月発生売上を「今月末入金予定」にセット (翌月末に入金される)
+            currentMonthSalesTotal = 0;
+
+            addLog(`【更新】今月末入金予定: ${incomeDueThisMonth.toLocaleString()}円 (当月発生分)`);
+            
             let monthlyExpenses = 0;
             let expensesDetail = ""; 
-
             let currentRent = officeRent; 
-
             const utilities = 15000;
             const phone = 10000;
-            let taxes = 0;
-
-            if (currentYear === 1) {
-                taxes = 50000;
-            } else {
-                taxes = 50000; 
-            }
+            let taxes = (currentYear === 1) ? 50000 : 50000; 
 
             monthlyExpenses = currentRent + utilities + phone + taxes;
             expensesDetail = `
@@ -1697,34 +1699,20 @@
                 &nbsp;&nbsp;携帯料金: ${phone.toLocaleString()}円<br>
                 &nbsp;&nbsp;税金: ${taxes.toLocaleString()}円<br>
             `;
-
-            if (incomeDueThisMonth > 0) {
-                money += incomeDueThisMonth;
-                monthlyIncome = incomeDueThisMonth;
-                addLog(`売上 ${incomeDueThisMonth.toLocaleString()}円 が入金されました。現預金: ${money.toLocaleString()}円`, true);
-            } else { 
-                addLog("今月入金される売上はありませんでした。");
-            }
-            incomeDueThisMonth = incomeDueNextMonth;
-            addLog(`翌月入金予定額が ${incomeDueThisMonth.toLocaleString()}円 に確定しました。`);
-            incomeDueNextMonth = currentMonthSalesTotal;
-            addLog(`翌々月入金予定額が ${incomeDueNextMonth.toLocaleString()}円 に計上されました。`);
-            currentMonthSalesTotal = 0;
-            addLog("当月売上カウンターをリセット。");
-            
             money -= monthlyExpenses;
             addLog(`月次経費 ${monthlyExpenses.toLocaleString()}円 引落。現預金: ${money.toLocaleString()}円`, true);
             
-            updateDisplay();
+            updateDisplay(); 
             checkGameOver(); 
             
-            const monthlyProfit = monthlyIncome - monthlyExpenses;
+            const monthlyProfit = incomeReceivedThisMonth - monthlyExpenses; 
             let profitLossText = monthlyProfit >= 0 ? "利益" : "損失";
             let profitLossColor = monthlyProfit >= 0 ? "text-green-600" : "text-red-600";
 
             const summaryMessage = `
-                <b>収入合計: ${monthlyIncome.toLocaleString()}円</b><br>
+                <b>${previousYear}年${previousMonth}月度 収支報告</b><br>
                 <hr>
+                <b>${previousMonth}月末入金額(前月売上分): ${incomeReceivedThisMonth.toLocaleString()}円</b><br> 
                 <b>支出合計: ${monthlyExpenses.toLocaleString()}円</b><br>
                 ${expensesDetail}
                 <hr>
