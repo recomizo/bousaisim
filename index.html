@@ -606,6 +606,8 @@
         const newsModalContent = document.getElementById('news-modal-content');
         const newsModalCloseButton = document.getElementById('news-modal-close-button');
 
+        const SAVE_KEY = 'fireSafetyGameSaveData_v1';
+
 
         let money = 500000;
         let inspectionSkill = 1.0;
@@ -828,17 +830,105 @@
             if (jobDetailModal) jobDetailModal.classList.add('show');
         }
 
-        function initializeGame() {
-            clients.forEach(c => {
-                clientExperience[c.id] = {};
-                if (typeof c.orderCount === 'undefined') { 
-                    c.orderCount = 0;
+        function saveGameData() {
+            const gameState = {
+                money,
+                inspectionSkill,
+                constructionSkill,
+                reputation,
+                stamina,
+                stress,
+                currentYear,
+                currentMonth,
+                currentDay,
+                totalDaysPassed,
+                currentMonthSalesTotal,
+                incomeDueNextMonth,
+                incomeDueThisMonth,
+                availableJobs,
+                playerSchedule,
+                daysInRed,
+                clientExperience,
+                skillUpFromEatingOutTotal,
+                currentOfficeLevel,
+                officeRent,
+                clients // クライアントの信頼度と受注回数も保存
+            };
+            try {
+                localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+                addLog("ゲームデータを保存しました。");
+            } catch (e) {
+                console.error("セーブデータの保存に失敗しました。", e);
+                addLog("ゲームデータの保存に失敗しました。", true);
+            }
+        }
+
+        function loadGameData() {
+            try {
+                const savedData = localStorage.getItem(SAVE_KEY);
+                if (savedData) {
+                    const gameState = JSON.parse(savedData);
+                    money = gameState.money !== undefined ? gameState.money : 500000;
+                    inspectionSkill = gameState.inspectionSkill !== undefined ? gameState.inspectionSkill : 1.0;
+                    constructionSkill = gameState.constructionSkill !== undefined ? gameState.constructionSkill : 1.0;
+                    reputation = gameState.reputation !== undefined ? gameState.reputation : 0;
+                    stamina = gameState.stamina !== undefined ? gameState.stamina : 100;
+                    stress = gameState.stress !== undefined ? gameState.stress : 0;
+                    currentYear = gameState.currentYear !== undefined ? gameState.currentYear : 1;
+                    currentMonth = gameState.currentMonth !== undefined ? gameState.currentMonth : 1;
+                    currentDay = gameState.currentDay !== undefined ? gameState.currentDay : 1;
+                    totalDaysPassed = gameState.totalDaysPassed !== undefined ? gameState.totalDaysPassed : 1;
+                    currentMonthSalesTotal = gameState.currentMonthSalesTotal !== undefined ? gameState.currentMonthSalesTotal : 0;
+                    incomeDueNextMonth = gameState.incomeDueNextMonth !== undefined ? gameState.incomeDueNextMonth : 0;
+                    incomeDueThisMonth = gameState.incomeDueThisMonth !== undefined ? gameState.incomeDueThisMonth : 0;
+                    availableJobs = gameState.availableJobs || [];
+                    playerSchedule = gameState.playerSchedule || {};
+                    daysInRed = gameState.daysInRed || 0;
+                    clientExperience = gameState.clientExperience || {};
+                    skillUpFromEatingOutTotal = gameState.skillUpFromEatingOutTotal || 0;
+                    currentOfficeLevel = gameState.currentOfficeLevel || 1;
+                    officeRent = gameState.officeRent || 40000;
+
+                    if (gameState.clients) {
+                        clients.forEach(client => {
+                            const savedClient = gameState.clients.find(sc => sc.id === client.id);
+                            if (savedClient) {
+                                client.trust = savedClient.trust !== undefined ? savedClient.trust : 0;
+                                client.orderCount = savedClient.orderCount !== undefined ? savedClient.orderCount : 0;
+                            }
+                        });
+                    }
+                    
+                    addLog("保存されたゲームデータを読み込みました。");
+                    return true; 
                 }
-            });
+            } catch (e) {
+                console.error("セーブデータの読み込みに失敗しました。", e);
+                addLog("ゲームデータの読み込みに失敗しました。", true);
+                localStorage.removeItem(SAVE_KEY); // 破損データの可能性があるので削除
+            }
+            return false; 
+        }
+
+
+        function initializeGame() {
+            const dataLoaded = loadGameData();
+
+            if (!dataLoaded) {
+                clients.forEach(c => {
+                    clientExperience[c.id] = {};
+                    if (typeof c.orderCount === 'undefined') { 
+                        c.orderCount = 0;
+                    }
+                });
+                generateAvailableJobs();
+                addLog("消防設備個人事業を開始しました！取引先との信頼関係を築き上げましょう。");
+            }
+            
             updateDisplay();
-            generateAvailableJobs();
+            displayAvailableJobs(); // ロード後/初期化後いずれも表示更新
             updateFullScheduleDisplay();
-            addLog("消防設備個人事業を開始しました！取引先との信頼関係を築き上げましょう。");
+
 
             if (modalJobCloseButton) {
                 modalJobCloseButton.addEventListener('click', () => {
@@ -1119,8 +1209,10 @@
                     else displayAvailableJobs(); 
                     
                     updateFullScheduleDisplay();
+                    saveGameData(); 
                 });
             }
+             window.addEventListener('beforeunload', saveGameData);
         }
 
 
@@ -1402,17 +1494,17 @@
 
                 if (jobInfo.date === todayStr && jobInfo.status === 'scheduled') {
                     const buttonContainer = document.createElement('div');
-                    // mt-1 を削除し、ボタン自体のマージンで調整
+                    buttonContainer.classList.add('mb-1'); 
                     const executeButton = document.createElement('button');
                     executeButton.textContent = 'GO!'; 
-                    executeButton.classList.add('btn', 'bg-blue-500', 'hover:bg-blue-600', 'text-white', 'font-semibold', 'py-1', 'px-3', 'rounded-md', 'text-xs', 'mb-1'); 
+                    executeButton.classList.add('btn', 'bg-blue-500', 'hover:bg-blue-600', 'text-white', 'font-semibold', 'py-1', 'px-3', 'rounded-md', 'text-xs'); 
                     executeButton.dataset.jobId = jobInfo.id;
                     executeButton.addEventListener('click', () => executeJobFromSchedule(jobInfo.id));
                     
                     const scheduleLine = jobDiv.querySelector('.schedule-item-line');
                     if (scheduleLine) {
-                        scheduleLine.insertBefore(buttonContainer, scheduleLine.querySelector('.schedule-item-reward'));
-                        buttonContainer.appendChild(executeButton);
+                         scheduleLine.insertBefore(buttonContainer, scheduleLine.querySelector('.schedule-item-reward'));
+                         buttonContainer.appendChild(executeButton);
                     } else { 
                         buttonContainer.appendChild(executeButton);
                         jobDiv.appendChild(buttonContainer);
